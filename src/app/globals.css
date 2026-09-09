@@ -34,20 +34,20 @@ body {
   background-attachment: fixed;
 }
 
-/* Atmospheric night field + visible dotted stars */
+/* Soft dotted star field — kept deliberately faint */
 body::before {
   content: "";
   pointer-events: none;
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: 0.85;
+  opacity: 0.35;
   background-image:
-    radial-gradient(circle, rgba(210, 220, 245, 0.55) 0.85px, transparent 1.15px),
-    radial-gradient(circle at 20% 25%, rgba(96, 165, 250, 0.18), transparent 22%),
-    radial-gradient(circle at 78% 18%, rgba(249, 115, 22, 0.14), transparent 20%),
-    radial-gradient(circle at 55% 75%, rgba(56, 189, 248, 0.1), transparent 25%);
-  background-size: 34px 34px, 100% 100%, 100% 100%, 100% 100%;
+    radial-gradient(circle, rgba(210, 220, 245, 0.28) 0.65px, transparent 1px),
+    radial-gradient(circle at 20% 25%, rgba(96, 165, 250, 0.1), transparent 22%),
+    radial-gradient(circle at 78% 18%, rgba(249, 115, 22, 0.08), transparent 20%),
+    radial-gradient(circle at 55% 75%, rgba(56, 189, 248, 0.06), transparent 25%);
+  background-size: 36px 36px, 100% 100%, 100% 100%, 100% 100%;
   background-position: 0 0, center, center, center;
 }
 
