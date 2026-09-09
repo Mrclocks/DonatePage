@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # MrClock Donate — Ubuntu installer (menu)
-# One-liner:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Mrclocks/DonatePage/main/install.sh)
+# Usage:
+#   git clone https://github.com/Mrclocks/DonatePage.git
+#   cd DonatePage
+#   bash install.sh
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/Mrclocks/DonatePage.git}"
