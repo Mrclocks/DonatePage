@@ -105,9 +105,63 @@ install_docker_ubuntu() {
 compose() {
   if docker compose version >/dev/null 2>&1; then
     docker compose "$@"
-  else
-    need_root_apt docker compose "$@"
+    return
   fi
+  if need_root_apt docker compose version >/dev/null 2>&1; then
+    need_root_apt docker compose "$@"
+    return
+  fi
+  echo "Docker Compose is not available."
+  return 1
+}
+
+prepare_data_dir() {
+  mkdir -p data
+  chmod 777 data 2>/dev/null || chmod 700 data || true
+  # Container user is uid 1001; make host mount writable for it.
+  if command -v sudo >/dev/null 2>&1; then
+    sudo chown -R 1001:1001 data 2>/dev/null || true
+  else
+    chown -R 1001:1001 data 2>/dev/null || true
+  fi
+}
+
+wait_for_app() {
+  echo "Waiting for app health..."
+  local i
+  for i in $(seq 1 36); do
+    if compose ps --status running 2>/dev/null | grep -q "app"; then
+      if compose exec -T app node -e "fetch('http://127.0.0.1:3000/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+        echo "App is healthy."
+        return 0
+      fi
+    fi
+    sleep 5
+    echo "  still starting... (${i}/36)"
+  done
+  echo "App did not become healthy in time."
+  echo "---- app logs ----"
+  compose logs --tail=120 app || true
+  echo "---- caddy logs ----"
+  compose logs --tail=60 caddy || true
+  return 1
+}
+
+diagnose_503() {
+  echo
+  echo "=== Diagnose 503 ==="
+  compose ps || true
+  echo
+  echo "---- app logs ----"
+  compose logs --tail=150 app || true
+  echo
+  echo "---- caddy logs ----"
+  compose logs --tail=80 caddy || true
+  echo
+  echo "Trying rebuild with permission fix..."
+  prepare_data_dir
+  compose up -d --build --force-recreate
+  wait_for_app || true
 }
 
 read_secret() {
@@ -237,21 +291,27 @@ prompt_install() {
   fi
 
   session_secret="$(openssl rand -hex 32)"
-  mkdir -p data
-  chmod 700 data
+  prepare_data_dir
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
     "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}"
   write_caddyfile "${domain}" "${acme_email}"
 
   open_firewall_hint
   echo "Building and starting services..."
-  compose up -d --build
-  echo
-  echo "Install complete."
-  echo "Site:    https://${domain}"
-  echo "Admin:   https://${domain}/admin"
-  echo "Webhook: https://${domain}/api/webhook/onepayment"
-  echo "DNS must point to this server for SSL."
+  compose up -d --build --force-recreate
+  if wait_for_app; then
+    echo
+    echo "Install complete."
+    echo "Site:    https://${domain}"
+    echo "Admin:   https://${domain}/admin"
+    echo "Webhook: https://${domain}/api/webhook/onepayment"
+    echo "DNS must point to this server for SSL."
+  else
+    echo
+    echo "Install finished but app is unhealthy (this usually causes HTTP 503)."
+    echo "Use menu option: Diagnose / fix 503"
+    return 1
+  fi
 }
 
 open_firewall_hint() {
@@ -320,7 +380,9 @@ edit_settings() {
   write_caddyfile "${domain}" "${acme_email}"
 
   echo "Restarting services..."
-  compose up -d --build
+  prepare_data_dir
+  compose up -d --build --force-recreate
+  wait_for_app || true
   echo "Settings updated."
   echo "Site: https://${domain}"
 }
@@ -355,14 +417,18 @@ restart_services() {
 
 rebuild_services() {
   echo "Rebuilding..."
-  compose up -d --build
+  prepare_data_dir
+  compose up -d --build --force-recreate
+  wait_for_app || true
   echo "Done."
 }
 
 update_from_git() {
   echo "Pulling latest code..."
   git pull --ff-only origin "${REPO_BRANCH}" || git pull --ff-only
-  compose up -d --build
+  prepare_data_dir
+  compose up -d --build --force-recreate
+  wait_for_app || true
   echo "Updated."
 }
 
@@ -410,6 +476,7 @@ print_menu() {
  7) Update from Git
  8) Backup data
  9) Uninstall / delete
+ d) Diagnose / fix 503
  0) Exit
 EOF
 }
@@ -433,6 +500,7 @@ main_menu() {
       7) update_from_git ;;
       8) backup_data ;;
       9) uninstall_all ;;
+      d|D) diagnose_503 ;;
       0|q|Q) echo "Bye."; exit 0 ;;
       *) echo "Invalid option." ;;
     esac
