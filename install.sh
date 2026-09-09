@@ -613,14 +613,14 @@ print_menu() {
   clear_screen
   local ver=""
   if git rev-parse --short HEAD >/dev/null 2>&1; then
-    ver=" · $(git rev-parse --short HEAD)"
+    ver="$(git rev-parse --short HEAD)"
   fi
 
   cat <<EOF
 
-  ${C_BOLD}${C_ORANGE}╭──────────────────────────────────╮${C_RESET}
-  ${C_BOLD}${C_ORANGE}│${C_RESET}   ${C_BOLD}MrClock Donate${C_RESET}  ${C_DIM}installer${ver}${C_RESET}   ${C_BOLD}${C_ORANGE}│${C_RESET}
-  ${C_BOLD}${C_ORANGE}╰──────────────────────────────────╯${C_RESET}
+  ${C_BOLD}${C_ORANGE}MrClock Donate${C_RESET}
+  ${C_DIM}installer${ver:+ · ${ver}}${C_RESET}
+  ${C_DIM}────────────────────────────────${C_RESET}
 
     ${C_CYAN}1${C_RESET}  Install
     ${C_CYAN}2${C_RESET}  Update          ${C_DIM}git pull + rebuild app${C_RESET}
