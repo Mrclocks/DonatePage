@@ -241,11 +241,17 @@ write_env_file() {
   local webhook_secret="$8"
   local tg_token="$9"
   local tg_chat="${10}"
+  local admin_path="${11:-admin}"
+
+  # Keep path filesystem/url safe
+  admin_path="$(printf '%s' "${admin_path}" | tr -cd 'A-Za-z0-9-_')"
+  [[ -n "${admin_path}" ]] || admin_path="admin"
 
   cat > .env <<EOF
 APP_URL=$(env_escape "https://${domain}")
 SESSION_SECRET=$(env_escape "${session_secret}")
 ADMIN_PASSWORD=$(env_escape "${admin_password}")
+ADMIN_PATH=$(env_escape "${admin_path}")
 DATA_DIR=/app/data
 ONEPAYMENT_MODE=$(env_escape "${mode}")
 ONEPAYMENT_ALLOW_DEMO=$(env_escape "${allow_demo}")
@@ -259,6 +265,9 @@ TELEGRAM_CHAT_ID=$(env_escape "${tg_chat}")
 NODE_ENV=production
 EOF
   chmod 600 .env
+
+  mkdir -p data
+  printf '%s\n' "${admin_path}" > data/admin-path.txt
 }
 
 get_env() {
@@ -287,6 +296,10 @@ prompt_install() {
   admin_password="$(read_secret "Admin password (min 8 chars): ")"
   [[ ${#admin_password} -ge 8 ]] || { echo "Admin password must be at least 8 characters."; return 1; }
 
+  local admin_path
+  read -r -p "Admin login path (default: admin): " admin_path
+  admin_path="${admin_path:-admin}"
+
   echo "Secrets are hidden while typing."
   api_key="$(read_secret "OnePayment API Key (empty = demo): ")"
   read -r -p "OnePayment Merchant ID (optional): " merchant_id
@@ -313,7 +326,7 @@ prompt_install() {
   session_secret="$(openssl rand -hex 32)"
   prepare_data_dir
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}"
+    "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
   write_caddyfile "${domain}" "${acme_email}"
 
   open_firewall_hint
@@ -323,7 +336,7 @@ prompt_install() {
     echo
     echo "Install complete."
     echo "Site:    https://${domain}"
-    echo "Admin:   https://${domain}/admin"
+    echo "Admin:   https://${domain}/${admin_path}/login"
     echo "Webhook: https://${domain}/api/webhook/onepayment"
     echo "DNS must point to this server for SSL."
   else
@@ -373,6 +386,10 @@ edit_settings() {
   new_admin="$(read_secret "New admin password (Enter = keep): ")"
   admin_password="${new_admin:-${ADMIN_PASSWORD}}"
 
+  local admin_path
+  read -r -p "Admin login path [${ADMIN_PATH:-admin}]: " admin_path
+  admin_path="${admin_path:-${ADMIN_PATH:-admin}}"
+
   api_key="$(read_secret "OnePayment API Key (Enter = keep): ")"
   api_key="${api_key:-${ONEPAYMENT_API_KEY}}"
   read -r -p "OnePayment Merchant ID [${ONEPAYMENT_MERCHANT_ID}]: " merchant_id
@@ -396,7 +413,7 @@ edit_settings() {
 
   local session_secret="${SESSION_SECRET:-$(openssl rand -hex 32)}"
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}"
+    "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
   write_caddyfile "${domain}" "${acme_email}"
 
   echo "Restarting services..."
@@ -405,6 +422,7 @@ edit_settings() {
   wait_for_app || true
   echo "Settings updated."
   echo "Site: https://${domain}"
+  echo "Admin: https://${domain}/${admin_path}/login"
 }
 
 show_status() {

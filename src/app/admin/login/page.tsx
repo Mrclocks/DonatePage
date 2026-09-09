@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+function adminBaseFromLocation() {
+  const path = window.location.pathname.replace(/\/$/, "") || "/admin";
+  if (path.endsWith("/login")) {
+    return path.slice(0, -"/login".length) || "/admin";
+  }
+  return path;
+}
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -26,7 +34,10 @@ export default function AdminLoginPage() {
         setError("رمز عبور نادرست است");
         return;
       }
-      router.replace("/admin");
+      const data = await response.json().catch(() => ({}));
+      const base =
+        data.adminPath ? `/${data.adminPath}` : adminBaseFromLocation();
+      router.replace(base);
       router.refresh();
     });
   }
@@ -58,11 +69,7 @@ export default function AdminLoginPage() {
             />
           </div>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          <Button
-            type="submit"
-            className="w-full rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
-            disabled={pending}
-          >
+          <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "..." : "ورود"}
           </Button>
         </form>

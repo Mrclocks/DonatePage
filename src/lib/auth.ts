@@ -2,8 +2,13 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+import { getDb } from "@/lib/db";
+import { settings } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
 const COOKIE_NAME = "mrclock_admin";
+const ADMIN_PATH_COOKIE = "mrclock_admin_path";
+const PASSWORD_HASH_KEY = "adminPasswordHash";
 
 function getSecret() {
   const secret =
@@ -60,22 +65,65 @@ export async function isAdminAuthenticated() {
   }
 }
 
+function getStoredPasswordHash() {
+  try {
+    const db = getDb();
+    const row = db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, PASSWORD_HASH_KEY))
+      .get();
+    return row?.value || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAdminPassword(password: string) {
+  const hash = await hashPassword(password);
+  const db = getDb();
+  db.insert(settings)
+    .values({ key: PASSWORD_HASH_KEY, value: hash })
+    .onConflictDoUpdate({
+      target: settings.key,
+      set: { value: hash },
+    })
+    .run();
+}
+
 export function requireAdminPasswordConfigured() {
+  const stored = getStoredPasswordHash();
   const hash = process.env.ADMIN_PASSWORD_HASH;
   const plain = process.env.ADMIN_PASSWORD;
-  if (!hash && !plain) {
+  if (!stored && !hash && !plain) {
     throw new Error("ADMIN_PASSWORD or ADMIN_PASSWORD_HASH is required");
   }
 }
 
 export async function validateAdminPassword(password: string) {
+  const stored = getStoredPasswordHash();
+  if (stored) return verifyPassword(password, stored);
+
   const hash = process.env.ADMIN_PASSWORD_HASH;
   if (hash) return verifyPassword(password, hash);
+
   const plain = process.env.ADMIN_PASSWORD || "";
   const a = Buffer.from(password);
   const b = Buffer.from(plain);
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
+}
+
+export function adminPathCookieOptions(pathValue: string) {
+  return {
+    name: ADMIN_PATH_COOKIE,
+    value: pathValue,
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  };
 }
 
 export function createOrderId() {

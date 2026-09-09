@@ -68,7 +68,7 @@ export function DonateForm() {
               setAmount(String(value));
             }}
             className={cn(
-              "h-11 rounded-xl border text-sm transition",
+              "h-11 rounded-full border text-sm transition",
               !customMode && Number(amount) === value
                 ? "border-orange-400 bg-orange-500/15 text-orange-200 shadow-[0_0_24px_rgba(249,115,22,0.25)]"
                 : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
@@ -81,7 +81,7 @@ export function DonateForm() {
           type="button"
           onClick={() => setCustomMode(true)}
           className={cn(
-            "h-11 rounded-xl border text-sm transition",
+            "h-11 rounded-full border text-sm transition",
             customMode
               ? "border-orange-400 bg-orange-500/15 text-orange-200"
               : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
@@ -118,7 +118,7 @@ export function DonateForm() {
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
       <Button
-        className="h-12 w-full gap-2 rounded-xl text-base shadow-[0_12px_40px_rgba(249,115,22,0.35)]"
+        className="h-12 w-full gap-2 text-base shadow-[0_12px_40px_rgba(249,115,22,0.35)]"
         size="lg"
         disabled={pending}
         onClick={submit}
