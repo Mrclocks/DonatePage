@@ -53,13 +53,21 @@ function ensureSchema(database: Database.Database) {
 export function getDb() {
   if (dbInstance) return dbInstance;
 
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  sqlite = new Database(dbPath);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-  ensureSchema(sqlite);
-  dbInstance = drizzle(sqlite, { schema });
-  return dbInstance;
+  try {
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    sqlite = new Database(dbPath);
+    sqlite.pragma("journal_mode = WAL");
+    sqlite.pragma("foreign_keys = ON");
+    ensureSchema(sqlite);
+    dbInstance = drizzle(sqlite, { schema });
+    return dbInstance;
+  } catch (error) {
+    console.error("database_open_failed", {
+      dbPath,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 export function nowIso() {

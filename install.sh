@@ -129,21 +129,23 @@ prepare_data_dir() {
 wait_for_app() {
   echo "Waiting for app health..."
   local i
-  for i in $(seq 1 36); do
-    if compose ps --status running 2>/dev/null | grep -q "app"; then
-      if compose exec -T app node -e "fetch('http://127.0.0.1:3000/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
-        echo "App is healthy."
-        return 0
-      fi
+  for i in $(seq 1 40); do
+    if curl -fsS "http://127.0.0.1:3000/api/health" >/dev/null 2>&1; then
+      echo "App is healthy on :3000"
+      return 0
     fi
-    sleep 5
-    echo "  still starting... (${i}/36)"
+    if compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+      echo "App is healthy."
+      return 0
+    fi
+    sleep 3
+    echo "  still starting... (${i}/40)"
   done
   echo "App did not become healthy in time."
   echo "---- app logs ----"
-  compose logs --tail=120 app || true
+  compose logs --tail=160 app || true
   echo "---- caddy logs ----"
-  compose logs --tail=60 caddy || true
+  compose logs --tail=80 caddy || true
   return 1
 }
 
