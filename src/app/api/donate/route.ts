@@ -5,7 +5,7 @@ import {
   createPendingDonation,
   getActiveTarget,
 } from "@/lib/donations";
-import { createOnePayment } from "@/lib/onepayment";
+import { assertLiveWebhookConfigured, createOnePayment } from "@/lib/onepayment";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -49,6 +49,7 @@ export async function POST(request: Request) {
   const base = appUrl(request);
 
   try {
+    assertLiveWebhookConfigured();
     const payment = await createOnePayment({
       orderId,
       amount: parsed.data.amount,

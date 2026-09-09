@@ -47,4 +47,6 @@ npm run dev
 - Session ادمین HttpOnly
 - Rate limit روی donate / login / webhook
 - Verify امضای وب‌هوک قبل از ثبت دونیت
+- در production بدون کلید درگاه، نصب متوقف می‌شود مگر صریحاً Demo را تأیید کنید
+- در live، Webhook Secret اجباری است
 - فایل `.env` و پوشه `data/` در git نیستند

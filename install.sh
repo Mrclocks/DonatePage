@@ -19,6 +19,17 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
+env_escape() {
+  # Escape values for .env so $, `, ", \ and newlines cannot break or interpolate.
+  local value="${1-}"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//\$/\\$}"
+  value="${value//\`/\\\`}"
+  value="${value//$'\n'/\\n}"
+  printf '"%s"' "$value"
+}
+
 read -r -p "دامنه (مثال: donate.example.com): " DOMAIN
 DOMAIN="${DOMAIN// /}"
 if [[ -z "$DOMAIN" ]]; then
@@ -34,36 +45,57 @@ if [[ ${#ADMIN_PASSWORD} -lt 8 ]]; then
   exit 1
 fi
 
-read -r -p "OnePayment API Key (خالی = حالت Demo): " ONEPAYMENT_API_KEY
+echo
+echo "کلیدهای درگاه/تلگرام هنگام تایپ دیده نمی‌شوند."
+read -r -s -p "OnePayment API Key: " ONEPAYMENT_API_KEY
+echo
 read -r -p "OnePayment Merchant ID (اختیاری): " ONEPAYMENT_MERCHANT_ID
-read -r -p "OnePayment Webhook Secret (اختیاری): " ONEPAYMENT_WEBHOOK_SECRET
-read -r -p "Telegram Bot Token (اختیاری): " TELEGRAM_BOT_TOKEN
+read -r -s -p "OnePayment Webhook Secret: " ONEPAYMENT_WEBHOOK_SECRET
+echo
+read -r -s -p "Telegram Bot Token (اختیاری): " TELEGRAM_BOT_TOKEN
+echo
 read -r -p "Telegram Chat ID (اختیاری): " TELEGRAM_CHAT_ID
 
 SESSION_SECRET="$(openssl rand -hex 32)"
+ONEPAYMENT_ALLOW_DEMO="false"
 
-if [[ -n "$ONEPAYMENT_API_KEY" ]]; then
-  ONEPAYMENT_MODE="live"
+if [[ -z "$ONEPAYMENT_API_KEY" ]]; then
+  echo
+  echo "API Key خالی است."
+  read -r -p "آیا حالت Demo روی سرور عمومی فعال شود؟ (خطرناک — فقط برای تست) [y/N]: " ALLOW_DEMO
+  if [[ "${ALLOW_DEMO,,}" == "y" || "${ALLOW_DEMO,,}" == "yes" ]]; then
+    ONEPAYMENT_MODE="demo"
+    ONEPAYMENT_ALLOW_DEMO="true"
+    echo "هشدار: Demo روی production فعال شد."
+  else
+    echo "برای نصب production باید ONEPAYMENT_API_KEY بدهید."
+    exit 1
+  fi
 else
-  ONEPAYMENT_MODE="demo"
+  ONEPAYMENT_MODE="live"
+  if [[ -z "$ONEPAYMENT_WEBHOOK_SECRET" ]]; then
+    echo "در حالت live، Webhook Secret الزامی است."
+    exit 1
+  fi
 fi
 
 mkdir -p data
 chmod 700 data
 
 cat > .env <<EOF
-APP_URL=https://${DOMAIN}
-SESSION_SECRET=${SESSION_SECRET}
-ADMIN_PASSWORD=${ADMIN_PASSWORD}
+APP_URL=$(env_escape "https://${DOMAIN}")
+SESSION_SECRET=$(env_escape "${SESSION_SECRET}")
+ADMIN_PASSWORD=$(env_escape "${ADMIN_PASSWORD}")
 DATA_DIR=/app/data
-ONEPAYMENT_MODE=${ONEPAYMENT_MODE}
-ONEPAYMENT_API_KEY=${ONEPAYMENT_API_KEY}
-ONEPAYMENT_MERCHANT_ID=${ONEPAYMENT_MERCHANT_ID}
-ONEPAYMENT_WEBHOOK_SECRET=${ONEPAYMENT_WEBHOOK_SECRET}
-ONEPAYMENT_API_BASE=https://api.onepayment.pro
-ONEPAYMENT_CREATE_PATH=/v1/payments
-TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+ONEPAYMENT_MODE=$(env_escape "${ONEPAYMENT_MODE}")
+ONEPAYMENT_ALLOW_DEMO=$(env_escape "${ONEPAYMENT_ALLOW_DEMO}")
+ONEPAYMENT_API_KEY=$(env_escape "${ONEPAYMENT_API_KEY}")
+ONEPAYMENT_MERCHANT_ID=$(env_escape "${ONEPAYMENT_MERCHANT_ID}")
+ONEPAYMENT_WEBHOOK_SECRET=$(env_escape "${ONEPAYMENT_WEBHOOK_SECRET}")
+ONEPAYMENT_API_BASE=$(env_escape "https://api.onepayment.pro")
+ONEPAYMENT_CREATE_PATH=$(env_escape "/v1/payments")
+TELEGRAM_BOT_TOKEN=$(env_escape "${TELEGRAM_BOT_TOKEN}")
+TELEGRAM_CHAT_ID=$(env_escape "${TELEGRAM_CHAT_ID}")
 NODE_ENV=production
 EOF
 chmod 600 .env

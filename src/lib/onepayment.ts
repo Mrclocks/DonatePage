@@ -35,7 +35,26 @@ export function getWebhookSecret() {
 }
 
 export function isDemoMode() {
+  // Never allow demo payment completion on a public production deploy
+  // unless explicitly forced with ONEPAYMENT_ALLOW_DEMO=true.
+  if (process.env.NODE_ENV === "production") {
+    return (
+      process.env.ONEPAYMENT_ALLOW_DEMO === "true" &&
+      (mode() === "demo" || !process.env.ONEPAYMENT_API_KEY)
+    );
+  }
   return mode() === "demo" || !process.env.ONEPAYMENT_API_KEY;
+}
+
+export function assertLiveWebhookConfigured() {
+  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.ONEPAYMENT_ALLOW_DEMO === "true") return;
+  if (!process.env.ONEPAYMENT_API_KEY) {
+    throw new Error("ONEPAYMENT_API_KEY is required in production");
+  }
+  if (!process.env.ONEPAYMENT_WEBHOOK_SECRET) {
+    throw new Error("ONEPAYMENT_WEBHOOK_SECRET is required in production");
+  }
 }
 
 export async function createOnePayment(
@@ -117,9 +136,8 @@ export function verifyOnePaymentWebhook(
 ) {
   const secret = getWebhookSecret();
   if (!secret) {
-    // In demo/dev without secret, reject production-looking traffic
-    if (isDemoMode()) return true;
-    return false;
+    // Only allow unsigned webhooks in local/dev demo — never in production.
+    return process.env.NODE_ENV !== "production" && isDemoMode();
   }
   if (!signatureHeader) return false;
 
