@@ -14,7 +14,7 @@ export default async function SuccessPage({
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-10 px-4 py-10">
       <BrandMark />
-      <GlassCard className="space-y-6 text-center">
+      <GlassCard className="flex flex-col gap-6 text-center">
         <AlertBox variant="success" title="ممنون از حمایتت">
           اگر پرداخت موفق بوده باشد، به‌زودی در لیست دونیت‌ها و پیشرفت مقصد
           دیده می‌شود.

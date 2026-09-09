@@ -254,7 +254,7 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10 md:gap-12 md:px-8 md:py-14">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 md:px-8 md:py-14">
       <div className="flex items-center justify-between gap-4">
         <BrandMark href="/" large />
         <Button variant="outline" onClick={logout} disabled={pending}>
@@ -267,9 +267,9 @@ export function AdminPanel() {
       ) : null}
 
       <GlassCard
-        className="space-y-8"
+        className="flex flex-col gap-6"
         title={editingId ? "ویرایش هدف" : "ایجاد هدف جدید"}
-        icon={<Target className="h-7 w-7" strokeWidth={2.25} />}
+        icon={<Target className="h-6 w-6" strokeWidth={2.25} />}
       >
         <AlertBox variant="info" title="چند کمپین همزمان">
           می‌توانید چند کمپین را هم‌زمان فعال کنید. «حمایت عمومی» همیشه باز است و قابل حذف نیست.
@@ -280,7 +280,7 @@ export function AdminPanel() {
           </span>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="title">عنوان هدف</Label>
             <Input
               id="title"
@@ -289,7 +289,7 @@ export function AdminPanel() {
               placeholder="مثال: توسعه پلتفرم MrClock"
             />
           </div>
-          <div className="space-y-2.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="goal">مبلغ هدف (USDT)</Label>
             <Input
               id="goal"
@@ -324,9 +324,9 @@ export function AdminPanel() {
       </GlassCard>
 
       <GlassCard
-        className="space-y-6"
+        className="flex flex-col gap-6"
         title="اهداف قبلی و جاری"
-        icon={<ListOrdered className="h-7 w-7" strokeWidth={2.25} />}
+        icon={<ListOrdered className="h-6 w-6" strokeWidth={2.25} />}
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-separate border-spacing-y-3 text-sm">
@@ -454,12 +454,12 @@ export function AdminPanel() {
       </GlassCard>
 
       <GlassCard
-        className="space-y-8"
+        className="flex flex-col gap-6"
         title="امنیت و مسیر ورود"
-        icon={<KeyRound className="h-7 w-7" strokeWidth={2.25} />}
+        icon={<KeyRound className="h-6 w-6" strokeWidth={2.25} />}
       >
         <div className="grid gap-6 md:grid-cols-3">
-          <div className="space-y-2.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="current-pass">رمز فعلی</Label>
             <Input
               id="current-pass"
@@ -469,7 +469,7 @@ export function AdminPanel() {
               onChange={(e) => setCurrentPassword(e.target.value)}
             />
           </div>
-          <div className="space-y-2.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="new-pass">رمز جدید</Label>
             <Input
               id="new-pass"
@@ -479,7 +479,7 @@ export function AdminPanel() {
               onChange={(e) => setNewPassword(e.target.value)}
             />
           </div>
-          <div className="space-y-2.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="confirm-pass">تکرار رمز جدید</Label>
             <Input
               id="confirm-pass"
@@ -531,9 +531,9 @@ export function AdminPanel() {
       </GlassCard>
 
       <GlassCard
-        className="space-y-8"
+        className="flex flex-col gap-6"
         title="تنظیمات تلگرام"
-        icon={<Send className="h-7 w-7" strokeWidth={2.25} />}
+        icon={<Send className="h-6 w-6" strokeWidth={2.25} />}
       >
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span
@@ -557,7 +557,7 @@ export function AdminPanel() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="token">Bot Token</Label>
             <Input
               id="token"
@@ -568,7 +568,7 @@ export function AdminPanel() {
               placeholder="123456:ABC..."
             />
           </div>
-          <div className="space-y-2.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="chat">Chat ID</Label>
             <Input
               id="chat"
