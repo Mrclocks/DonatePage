@@ -2,15 +2,23 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Check,
+  ListOrdered,
+  RefreshCw,
+  Send,
+  Target,
+} from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { GlassCard } from "@/components/glass-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { formatMoney } from "@/lib/utils";
+import { clampPercent, formatMoney } from "@/lib/utils";
 
-type Target = {
+type TargetRow = {
   id: number;
   title: string;
   goalAmount: number;
@@ -30,7 +38,7 @@ type SettingsView = {
 
 export function AdminPanel() {
   const router = useRouter();
-  const [targets, setTargets] = useState<Target[]>([]);
+  const [targets, setTargets] = useState<TargetRow[]>([]);
   const [settings, setSettings] = useState<SettingsView>({
     telegramBotToken: "",
     telegramChatId: "",
@@ -130,9 +138,9 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 md:px-6 md:py-14">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10 md:gap-12 md:px-8 md:py-14">
       <div className="flex items-center justify-between gap-4">
-        <BrandMark href="/" />
+        <BrandMark href="/" large />
         <Button variant="outline" onClick={logout} disabled={pending}>
           خروج
         </Button>
@@ -142,109 +150,181 @@ export function AdminPanel() {
         <p className="text-sm text-orange-300">{message}</p>
       ) : null}
 
-      <div className="grid gap-10 lg:grid-cols-2">
-        <GlassCard>
-          <div className="mb-8 space-y-2">
-            <p className="text-sm text-slate-400">تارگت جدید</p>
-            <h1 className="text-2xl font-semibold text-white">ساخت هدف دونیت</h1>
-          </div>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="title">عنوان</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="هدف ماه"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="goal">مبلغ هدف</Label>
-              <Input
-                id="goal"
-                value={goalAmount}
-                onChange={(e) => setGoalAmount(e.target.value)}
-                inputMode="decimal"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant={currency === "USDT" ? "default" : "outline"}
-                onClick={() => setCurrency("USDT")}
-              >
-                USDT
-              </Button>
-              <Button
-                type="button"
-                variant={currency === "USD" ? "default" : "outline"}
-                onClick={() => setCurrency("USD")}
-              >
-                USD
-              </Button>
-            </div>
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-              <div>
-                <p className="text-sm text-white">فعال‌سازی فوری</p>
-                <p className="text-xs text-slate-400">
-                  تارگت فعلی بسته و این یکی فعال می‌شود
-                </p>
-              </div>
-              <Switch checked={activate} onCheckedChange={setActivate} />
-            </div>
-            <Button className="w-full" disabled={pending} onClick={createTarget}>
-              ذخیره
-            </Button>
-          </div>
-        </GlassCard>
-
-        <GlassCard>
-          <div className="mb-8 space-y-2">
-            <p className="text-sm text-slate-400">لیست</p>
-            <h2 className="text-2xl font-semibold text-white">تارگت‌ها</h2>
-          </div>
-          <div className="space-y-4">
-            {targets.length === 0 ? (
-              <p className="text-sm text-slate-400">هنوز تارگتی نیست</p>
-            ) : (
-              targets.map((target) => (
-                <div
-                  key={target.id}
-                  className="rounded-xl border border-white/10 bg-black/20 px-4 py-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-white">{target.title}</p>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {formatMoney(target.raisedAmount, target.currency as "USD" | "USDT")}{" "}
-                        /{" "}
-                        {formatMoney(target.goalAmount, target.currency as "USD" | "USDT")}
-                      </p>
-                    </div>
-                    <span
-                      className={
-                        target.status === "active"
-                          ? "text-xs text-orange-300"
-                          : "text-xs text-slate-400"
-                      }
-                    >
-                      {target.status === "active" ? "فعال" : "تمام‌شده"}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </GlassCard>
-      </div>
-
-      <GlassCard>
-        <div className="mb-8 space-y-2">
-          <p className="text-sm text-slate-400">تنظیمات</p>
-          <h2 className="text-2xl font-semibold text-white">ربات تلگرام</h2>
+      <GlassCard className="space-y-8">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-orange-300" />
+          <h1 className="text-xl font-semibold text-white">ایجاد هدف جدید</h1>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
+          <div className="space-y-2.5">
+            <Label htmlFor="title">عنوان هدف</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="مثال: توسعه پلتفرم MrClock"
+            />
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="goal">مبلغ هدف ({currency})</Label>
+            <Input
+              id="goal"
+              value={goalAmount}
+              onChange={(e) => setGoalAmount(e.target.value)}
+              inputMode="decimal"
+              placeholder={`0 ${currency}`}
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+          <div className="grid grid-cols-2 gap-3 sm:max-w-xs">
+            <Button
+              type="button"
+              variant={currency === "USDT" ? "default" : "outline"}
+              onClick={() => setCurrency("USDT")}
+            >
+              USDT
+            </Button>
+            <Button
+              type="button"
+              variant={currency === "USD" ? "default" : "outline"}
+              onClick={() => setCurrency("USD")}
+            >
+              USD
+            </Button>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <Switch checked={activate} onCheckedChange={setActivate} />
+            <span className="text-sm text-slate-200">فعال</span>
+          </div>
+          <Button
+            className="gap-2 rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
+            disabled={pending}
+            onClick={createTarget}
+          >
+            <Check className="h-4 w-4" />
+            ذخیره هدف
+          </Button>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="space-y-6">
+        <div className="flex items-center gap-2">
+          <ListOrdered className="h-4 w-4 text-orange-300" />
+          <h2 className="text-xl font-semibold text-white">
+            اهداف قبلی و جاری
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] border-separate border-spacing-y-3 text-sm">
+            <thead>
+              <tr className="text-slate-400">
+                <th className="px-3 text-right font-medium">عنوان هدف</th>
+                <th className="px-3 text-right font-medium">مبلغ هدف</th>
+                <th className="px-3 text-right font-medium">جمع کمک‌ها</th>
+                <th className="px-3 text-right font-medium">پیشرفت</th>
+                <th className="px-3 text-right font-medium">وضعیت</th>
+                <th className="px-3 text-right font-medium">تاریخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {targets.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-slate-400">
+                    هنوز تارگتی نیست
+                  </td>
+                </tr>
+              ) : (
+                targets.map((target) => {
+                  const percent = clampPercent(
+                    (Number(target.raisedAmount) /
+                      Number(target.goalAmount)) *
+                      100,
+                  );
+                  return (
+                    <tr
+                      key={target.id}
+                      className="rounded-xl bg-black/20 text-slate-200"
+                    >
+                      <td className="rounded-r-xl px-3 py-4">{target.title}</td>
+                      <td className="px-3 py-4">
+                        {formatMoney(
+                          target.goalAmount,
+                          target.currency as "USD" | "USDT",
+                        )}
+                      </td>
+                      <td className="px-3 py-4">
+                        {formatMoney(
+                          target.raisedAmount,
+                          target.currency as "USD" | "USDT",
+                        )}
+                      </td>
+                      <td className="px-3 py-4">
+                        <div className="space-y-2">
+                          <Progress value={percent} className="h-2 w-28" />
+                          <span className="text-xs text-slate-400">
+                            {Math.round(percent)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-4">
+                        <span
+                          className={
+                            target.status === "active"
+                              ? "inline-flex items-center gap-2 text-sky-300"
+                              : "inline-flex items-center gap-2 text-emerald-300"
+                          }
+                        >
+                          <span
+                            className={`h-2 w-2 rounded-full ${
+                              target.status === "active"
+                                ? "bg-sky-400"
+                                : "bg-emerald-400"
+                            }`}
+                          />
+                          {target.status === "active" ? "فعال" : "تکمیل شده"}
+                        </span>
+                      </td>
+                      <td className="rounded-l-xl px-3 py-4 text-slate-400">
+                        {new Date(target.createdAt).toLocaleDateString("fa-IR")}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="space-y-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Send className="h-4 w-4 text-orange-300" />
+            <h2 className="text-xl font-semibold text-white">تنظیمات تلگرام</h2>
+          </div>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
+              settings.telegramEnabled && settings.hasTelegramToken
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : "border-white/10 bg-white/5 text-slate-400"
+            }`}
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${
+                settings.telegramEnabled && settings.hasTelegramToken
+                  ? "bg-emerald-400"
+                  : "bg-slate-500"
+              }`}
+            />
+            {settings.telegramEnabled && settings.hasTelegramToken
+              ? "اتصال"
+              : "غیرفعال"}
+          </span>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2.5">
             <Label htmlFor="token">Bot Token</Label>
             <Input
               id="token"
@@ -255,7 +335,7 @@ export function AdminPanel() {
               placeholder="123456:ABC..."
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Label htmlFor="chat">Chat ID</Label>
             <Input
               id="chat"
@@ -267,7 +347,8 @@ export function AdminPanel() {
             />
           </div>
         </div>
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <Switch
               checked={settings.telegramEnabled}
@@ -275,10 +356,18 @@ export function AdminPanel() {
                 setSettings((s) => ({ ...s, telegramEnabled: checked }))
               }
             />
-            <span className="text-sm text-slate-300">ارسال نوتیف فعال باشد</span>
+            <span className="text-sm text-slate-300">
+              فعال کردن اطلاع‌رسانی‌ها
+            </span>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" disabled={pending} onClick={testTelegram}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={pending}
+              onClick={testTelegram}
+            >
+              <RefreshCw className="h-4 w-4" />
               تست اتصال
             </Button>
             <Button disabled={pending} onClick={saveSettings}>

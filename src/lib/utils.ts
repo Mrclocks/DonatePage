@@ -7,18 +7,14 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatMoney(amount: number, currency: "USD" | "USDT" = "USD") {
   const value = Number(amount || 0);
-  if (currency === "USDT") {
-    return `${value.toLocaleString("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    })} USDT`;
-  }
-  return value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
+  const formatted = value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+  if (currency === "USDT") {
+    return `${formatted} USDT`;
+  }
+  return `$${formatted} USD`;
 }
 
 export function clampPercent(value: number) {

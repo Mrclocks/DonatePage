@@ -33,14 +33,14 @@ export default function AdminLoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-10 px-4 py-10">
-      <BrandMark href="/" />
+      <BrandMark href="/" large />
       <GlassCard>
         <div className="mb-8 space-y-2">
-          <p className="text-sm text-slate-400">ورود</p>
+          <p className="text-sm text-orange-300/90">ورود</p>
           <h1 className="text-2xl font-semibold text-white">پنل مدیریت</h1>
         </div>
         <div className="space-y-6">
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Label htmlFor="password">رمز عبور</Label>
             <Input
               id="password"
@@ -53,7 +53,11 @@ export default function AdminLoginPage() {
             />
           </div>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          <Button className="w-full" disabled={pending} onClick={login}>
+          <Button
+            className="w-full rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
+            disabled={pending}
+            onClick={login}
+          >
             {pending ? "..." : "ورود"}
           </Button>
         </div>
