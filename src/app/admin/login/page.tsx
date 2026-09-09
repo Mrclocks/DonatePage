@@ -1,0 +1,63 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { BrandMark } from "@/components/brand-mark";
+import { GlassCard } from "@/components/glass-card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function AdminLoginPage() {
+  const router = useRouter();
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function login() {
+    setError(null);
+    startTransition(async () => {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!response.ok) {
+        setError("رمز عبور نادرست است");
+        return;
+      }
+      router.replace("/admin");
+      router.refresh();
+    });
+  }
+
+  return (
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-10 px-4 py-10">
+      <BrandMark href="/" />
+      <GlassCard>
+        <div className="mb-8 space-y-2">
+          <p className="text-sm text-slate-400">ورود</p>
+          <h1 className="text-2xl font-semibold text-white">پنل مدیریت</h1>
+        </div>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="password">رمز عبور</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") login();
+              }}
+            />
+          </div>
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          <Button className="w-full" disabled={pending} onClick={login}>
+            {pending ? "..." : "ورود"}
+          </Button>
+        </div>
+      </GlassCard>
+    </main>
+  );
+}
