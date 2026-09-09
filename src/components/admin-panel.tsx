@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { GlassCard } from "@/components/glass-card";
+import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ type TargetRow = {
   raisedAmount: number;
   currency: string;
   status: string;
+  kind?: string;
   createdAt: string;
 };
 
@@ -59,7 +61,10 @@ export function AdminPanel() {
   const [goalAmount, setGoalAmount] = useState("1000");
   const [activate, setActivate] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{
+    text: string;
+    variant: "success" | "error" | "info" | "warning";
+  } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const [adminPath, setAdminPath] = useState("admin");
@@ -115,14 +120,14 @@ export function AdminPanel() {
       );
       const data = await response.json();
       if (!response.ok) {
-        setMessage(data.error || "خطا در ذخیره تارگت");
+        setMessage({ text: data.error || "خطا در ذخیره تارگت", variant: "error" });
         return;
       }
       setTitle("");
       setGoalAmount("1000");
       setActivate(true);
       setEditingId(null);
-      setMessage(isEdit ? "تارگت ویرایش شد" : "تارگت ذخیره شد");
+      setMessage({ text: isEdit ? "تارگت ویرایش شد" : "تارگت ذخیره شد", variant: "success" });
       await load();
     });
   }
@@ -132,7 +137,7 @@ export function AdminPanel() {
     setTitle(target.title);
     setGoalAmount(String(target.goalAmount));
     setActivate(target.status === "active");
-    setMessage(`در حال ویرایش: ${target.title}`);
+    setMessage({ text: `در حال ویرایش: ${target.title}`, variant: "info" });
   }
 
   function cancelEdit() {
@@ -152,11 +157,11 @@ export function AdminPanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(data.error || "حذف ناموفق");
+        setMessage({ text: data.error || "حذف ناموفق", variant: "error" });
         return;
       }
       if (editingId === id) cancelEdit();
-      setMessage("تارگت حذف شد");
+      setMessage({ text: "تارگت حذف شد", variant: "success" });
       await load();
     });
   }
@@ -171,10 +176,10 @@ export function AdminPanel() {
       });
       const data = await response.json();
       if (!response.ok) {
-        setMessage(data.error || "خطا در ذخیره تنظیمات");
+        setMessage({ text: data.error || "خطا در ذخیره تنظیمات", variant: "error" });
         return;
       }
-      setMessage("تنظیمات ذخیره شد");
+      setMessage({ text: "تنظیمات ذخیره شد", variant: "success" });
       await load();
     });
   }
@@ -187,17 +192,17 @@ export function AdminPanel() {
       });
       const data = await response.json();
       if (!response.ok) {
-        setMessage(data.error || "ارسال تست ناموفق");
+        setMessage({ text: data.error || "ارسال تست ناموفق", variant: "error" });
         return;
       }
-      setMessage("پیام تست ارسال شد");
+      setMessage({ text: "پیام تست ارسال شد", variant: "success" });
     });
   }
 
   function changePassword() {
     setMessage(null);
     if (newPassword !== confirmPassword) {
-      setMessage("تکرار رمز جدید یکسان نیست");
+      setMessage({ text: "تکرار رمز جدید یکسان نیست", variant: "error" });
       return;
     }
     startTransition(async () => {
@@ -208,13 +213,13 @@ export function AdminPanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(data.error || "تغییر رمز ناموفق");
+        setMessage({ text: data.error || "تغییر رمز ناموفق", variant: "error" });
         return;
       }
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setMessage("رمز ادمین تغییر کرد");
+      setMessage({ text: "رمز ادمین تغییر کرد", variant: "success" });
     });
   }
 
@@ -228,14 +233,15 @@ export function AdminPanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(data.error || "تغییر مسیر ناموفق");
+        setMessage({ text: data.error || "تغییر مسیر ناموفق", variant: "error" });
         return;
       }
       setAdminPath(data.path);
       setPathDraft(data.path);
-      setMessage(
-        `مسیر لاگین به /${data.path} تغییر کرد. برای همه کاربران، یک‌بار سرویس را ریستارت کنید.`,
-      );
+      setMessage({
+        text: `مسیر لاگین به /${data.path} تغییر کرد. برای همه کاربران، یک‌بار سرویس را ریستارت کنید.`,
+        variant: "success",
+      });
       router.replace(`/${data.path}`);
     });
   }
@@ -257,7 +263,7 @@ export function AdminPanel() {
       </div>
 
       {message ? (
-        <p className="text-sm text-orange-300">{message}</p>
+        <AlertBox variant={message.variant}>{message.text}</AlertBox>
       ) : null}
 
       <GlassCard
@@ -265,6 +271,9 @@ export function AdminPanel() {
         title={editingId ? "ویرایش هدف" : "ایجاد هدف جدید"}
         icon={<Target className="h-7 w-7" strokeWidth={2.25} />}
       >
+        <AlertBox variant="info" title="چند کمپین همزمان">
+          می‌توانید چند کمپین را هم‌زمان فعال کنید. «حمایت عمومی» همیشه باز است و قابل حذف نیست.
+        </AlertBox>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
             USDT · BEP20
@@ -341,30 +350,50 @@ export function AdminPanel() {
                 </tr>
               ) : (
                 targets.map((target) => {
-                  const percent = clampPercent(
-                    (Number(target.raisedAmount) /
-                      Number(target.goalAmount)) *
-                      100,
-                  );
+                  const isGeneral = target.kind === "general";
+                  const percent = isGeneral
+                    ? 0
+                    : clampPercent(
+                        (Number(target.raisedAmount) /
+                          Number(target.goalAmount || 1)) *
+                          100,
+                      );
                   return (
                     <tr
                       key={target.id}
                       className="rounded-xl bg-black/20 text-slate-200"
                     >
-                      <td className="rounded-r-xl px-3 py-4">{target.title}</td>
+                      <td className="rounded-r-xl px-3 py-4">
+                        <div className="space-y-1">
+                          <p>{target.title}</p>
+                          <span
+                            className={
+                              isGeneral
+                                ? "rounded-full border border-sky-400/25 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-200"
+                                : "rounded-full border border-orange-400/25 bg-orange-500/10 px-2 py-0.5 text-[11px] text-orange-200"
+                            }
+                          >
+                            {isGeneral ? "عمومی" : "کمپین"}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-3 py-4">
-                        {formatMoney(target.goalAmount)}
+                        {isGeneral ? "—" : formatMoney(target.goalAmount)}
                       </td>
                       <td className="px-3 py-4">
                         {formatMoney(target.raisedAmount)}
                       </td>
                       <td className="px-3 py-4">
-                        <div className="space-y-2">
-                          <Progress value={percent} className="h-2 w-28" />
-                          <span className="text-xs text-slate-400">
-                            {Math.round(percent)}%
-                          </span>
-                        </div>
+                        {isGeneral ? (
+                          <span className="text-xs text-slate-500">بدون سقف</span>
+                        ) : (
+                          <div className="space-y-2">
+                            <Progress value={percent} className="h-2 w-28" />
+                            <span className="text-xs text-slate-400">
+                              {Math.round(percent)}%
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-4">
                         <span
@@ -399,18 +428,20 @@ export function AdminPanel() {
                             <Pencil className="h-3.5 w-3.5" />
                             ویرایش
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="gap-1"
-                            disabled={pending}
-                            onClick={() =>
-                              removeTarget(target.id, target.title)
-                            }
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            حذف
-                          </Button>
+                          {!isGeneral ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="gap-1"
+                              disabled={pending}
+                              onClick={() =>
+                                removeTarget(target.id, target.title)
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              حذف
+                            </Button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>

@@ -1,4 +1,4 @@
-import { History, Target, Trophy, Users, Wallet } from "lucide-react";
+import { HeartHandshake, History, Sparkles, Target, Users, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { DonateForm } from "@/components/donate-form";
 import { GlassCard } from "@/components/glass-card";
@@ -14,29 +14,34 @@ const RANK_STYLES = [
   "bg-orange-700/20 text-orange-300 border-orange-500/25",
 ];
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = (await searchParams) || {};
+  const canceled = params.canceled === "1" || params.canceled === "true";
+
   type PublicData = ReturnType<typeof getPublicPageData>;
-  let activeTarget: PublicData["activeTarget"] | null = null;
+  let campaigns: PublicData["campaigns"] = [];
+  let destinations: PublicData["destinations"] = [];
   let topDonors: PublicData["topDonors"] = [];
   let history: PublicData["history"] = [];
+  let general: PublicData["general"] = undefined;
 
   try {
     const data = getPublicPageData();
-    activeTarget = data.activeTarget;
+    campaigns = data.campaigns;
+    destinations = data.destinations;
     topDonors = data.topDonors;
     history = data.history;
+    general = data.general;
   } catch {
-    activeTarget = null;
+    campaigns = [];
+    destinations = [];
     topDonors = [];
     history = [];
   }
-
-  const percent = activeTarget
-    ? clampPercent(
-        (Number(activeTarget.raisedAmount) / Number(activeTarget.goalAmount)) *
-          100,
-      )
-    : 0;
 
   return (
     <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-16">
@@ -45,53 +50,86 @@ export default function HomePage() {
       </header>
 
       <div className="mt-16 grid gap-10 md:mt-20 lg:grid-cols-2 lg:gap-12">
-        {activeTarget ? (
-          <GlassCard
-            className="min-h-[320px] space-y-8"
-            title="هدف جاری"
-            icon={<Target className="h-7 w-7" strokeWidth={2.25} />}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-3">
-                <h1 className="text-2xl font-semibold leading-relaxed tracking-tight text-white md:text-[1.7rem]">
-                  {activeTarget.title}
-                </h1>
-                <p className="text-sm text-slate-400">پرداخت فقط با USDT (BEP20)</p>
-              </div>
-              <span className="rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1 text-sm font-medium text-orange-200">
-                {Math.round(percent)}%
-              </span>
-            </div>
-
-            <div className="space-y-5">
-              <Progress value={percent} className="h-3.5" />
-              <div className="flex flex-col gap-4 text-sm text-slate-300 sm:flex-row sm:items-center sm:justify-between">
-                <div className="inline-flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-orange-300" />
-                  <span>
-                    {formatMoney(activeTarget.raisedAmount)}
-                    <span className="text-slate-500"> / </span>
-                    {formatMoney(activeTarget.goalAmount)}
-                  </span>
+        <GlassCard
+          className="min-h-[320px] space-y-6 lg:row-span-1"
+          title="کمپین‌های فعال"
+          icon={<Sparkles className="h-7 w-7" strokeWidth={2.25} />}
+        >
+          {campaigns.length === 0 ? (
+            <div className="space-y-4">
+              <p className="text-sm leading-7 text-slate-400">
+                فعلاً کمپین هدف‌مندی باز نیست. می‌توانید از بخش حمایت، به‌صورت عمومی
+                دونیت کنید.
+              </p>
+              {general ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3.5">
+                  <HeartHandshake className="h-5 w-5 text-sky-300" />
+                  <div>
+                    <p className="text-sm font-medium text-white">{general.title}</p>
+                    <p className="text-xs text-slate-400">
+                      جمع حمایت عمومی: {formatMoney(general.raisedAmount)}
+                    </p>
+                  </div>
                 </div>
-                <div className="inline-flex items-center gap-2 text-slate-400">
-                  هدف: {formatMoney(activeTarget.goalAmount)}
-                </div>
-              </div>
+              ) : null}
             </div>
-          </GlassCard>
-        ) : null}
+          ) : (
+            <div className="space-y-4">
+              {campaigns.map((campaign) => {
+                const percent = clampPercent(
+                  (Number(campaign.raisedAmount) /
+                    Number(campaign.goalAmount || 1)) *
+                    100,
+                );
+                return (
+                  <div
+                    key={campaign.id}
+                    className="space-y-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-2 text-orange-300">
+                          <Target className="h-4 w-4" />
+                          <span className="text-xs">کمپین</span>
+                        </div>
+                        <p className="font-medium text-white">{campaign.title}</p>
+                      </div>
+                      <span className="rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1 text-xs text-orange-200">
+                        {Math.round(percent)}%
+                      </span>
+                    </div>
+                    <Progress value={percent} className="h-2.5" />
+                    <div className="flex items-center justify-between gap-3 text-sm text-slate-300">
+                      <span className="inline-flex items-center gap-2">
+                        <Wallet className="h-4 w-4 text-orange-300" />
+                        {formatMoney(campaign.raisedAmount)}
+                        <span className="text-slate-500">/</span>
+                        {formatMoney(campaign.goalAmount)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </GlassCard>
 
         <GlassCard
-          className={
-            activeTarget
-              ? "min-h-[320px]"
-              : "min-h-[320px] lg:col-span-2 lg:max-w-xl lg:justify-self-center"
-          }
+          className="min-h-[320px]"
           title="حمایت کنید"
-          icon={<Trophy className="h-7 w-7" strokeWidth={2.25} />}
+          icon={<HeartHandshake className="h-7 w-7" strokeWidth={2.25} />}
         >
-          <DonateForm />
+          <DonateForm
+            destinations={destinations.map((d) => ({
+              id: d.id,
+              title: d.title,
+              kind: d.kind,
+              goalAmount: d.goalAmount,
+              raisedAmount: d.raisedAmount,
+              status: d.status,
+            }))}
+            canceled={canceled}
+          />
         </GlassCard>
 
         <GlassCard
@@ -139,7 +177,8 @@ export default function HomePage() {
             ) : (
               history.map((item) => {
                 const itemPercent = clampPercent(
-                  (Number(item.raisedAmount) / Number(item.goalAmount)) * 100,
+                  (Number(item.raisedAmount) / Number(item.goalAmount || 1)) *
+                    100,
                 );
                 return (
                   <div

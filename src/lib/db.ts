@@ -19,6 +19,7 @@ function ensureSchema(database: Database.Database) {
       raised_amount REAL NOT NULL DEFAULT 0,
       currency TEXT NOT NULL DEFAULT 'USDT',
       status TEXT NOT NULL DEFAULT 'active',
+      kind TEXT NOT NULL DEFAULT 'campaign',
       created_at TEXT NOT NULL,
       completed_at TEXT
     );
@@ -48,6 +49,33 @@ function ensureSchema(database: Database.Database) {
       created_at TEXT NOT NULL
     );
   `);
+
+  const cols = database
+    .prepare(`PRAGMA table_info(targets)`)
+    .all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === "kind")) {
+    database.exec(
+      `ALTER TABLE targets ADD COLUMN kind TEXT NOT NULL DEFAULT 'campaign'`,
+    );
+  }
+
+  const general = database
+    .prepare(`SELECT id FROM targets WHERE kind = 'general' LIMIT 1`)
+    .get() as { id: number } | undefined;
+  if (!general) {
+    database
+      .prepare(
+        `INSERT INTO targets (title, goal_amount, raised_amount, currency, status, kind, created_at, completed_at)
+         VALUES (?, 0, 0, 'USDT', 'active', 'general', ?, NULL)`,
+      )
+      .run("حمایت عمومی از MrClock", new Date().toISOString());
+  } else {
+    database
+      .prepare(
+        `UPDATE targets SET status = 'active', completed_at = NULL WHERE id = ?`,
+      )
+      .run(general.id);
+  }
 }
 
 export function getDb() {

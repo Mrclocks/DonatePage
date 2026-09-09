@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
 import { GlassCard } from "@/components/glass-card";
+import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,7 +69,11 @@ export default function AdminLoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? (
+            <AlertBox variant="error" title="ورود ناموفق">
+              {error}
+            </AlertBox>
+          ) : null}
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "..." : "ورود"}
           </Button>
