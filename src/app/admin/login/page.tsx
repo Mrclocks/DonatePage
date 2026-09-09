@@ -69,7 +69,11 @@ export default function AdminLoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? (
+            <AlertBox variant="error" title="ورود ناموفق">
+              {error}
+            </AlertBox>
+          ) : null}
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "..." : "ورود"}
           </Button>
