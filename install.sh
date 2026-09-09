@@ -104,6 +104,22 @@ install_docker_ubuntu() {
   echo "Docker installed."
 }
 
+fix_docker_dns() {
+  echo "Configuring Docker DNS (fixes Oracle Cloud build failures)..."
+  need_root_apt mkdir -p /etc/docker
+  if [[ -f /etc/docker/daemon.json ]]; then
+    need_root_apt cp /etc/docker/daemon.json "/etc/docker/daemon.json.bak.$(date +%s)" || true
+  fi
+  cat <<'EOF' | need_root_apt tee /etc/docker/daemon.json >/dev/null
+{
+  "dns": ["8.8.8.8", "1.1.1.1", "9.9.9.9"]
+}
+EOF
+  need_root_apt systemctl restart docker || need_root_apt service docker restart || true
+  sleep 2
+  echo "Docker DNS configured."
+}
+
 compose() {
   if docker compose version >/dev/null 2>&1; then
     docker compose "$@"
@@ -557,17 +573,27 @@ main_menu() {
     case "${choice}" in
       1)
         install_docker_ubuntu
+        fix_docker_dns
         prompt_install
         ;;
       2) edit_settings ;;
       3) show_status ;;
       4) show_logs ;;
       5) restart_services ;;
-      6) rebuild_services ;;
-      7) update_from_git ;;
+      6)
+        fix_docker_dns
+        rebuild_services
+        ;;
+      7)
+        fix_docker_dns
+        update_from_git
+        ;;
       8) backup_data ;;
       9) uninstall_all ;;
-      d|D) diagnose_503 ;;
+      d|D)
+        fix_docker_dns
+        diagnose_503
+        ;;
       0|q|Q) echo "Bye."; exit 0 ;;
       *) echo "Invalid option." ;;
     esac
