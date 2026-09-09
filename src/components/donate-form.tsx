@@ -7,20 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-const PRESETS = [
-  { value: 5, label: "$5" },
-  { value: 15, label: "$15" },
-  { value: 25, label: "$25" },
-  { value: 50, label: "$50" },
-];
+const PRESETS = [5, 15, 25, 50];
 
-export function DonateForm({
-  currencyDefault = "USDT",
-}: {
-  currencyDefault?: "USD" | "USDT";
-}) {
+export function DonateForm() {
   const [amount, setAmount] = useState<string>("25");
-  const [currency, setCurrency] = useState<"USD" | "USDT">(currencyDefault);
   const [donorName, setDonorName] = useState("");
   const [customMode, setCustomMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +32,6 @@ export function DonateForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: amountNumber,
-            currency,
             donorName: donorName.trim() || null,
           }),
         });
@@ -60,27 +49,32 @@ export function DonateForm({
 
   return (
     <div className="space-y-7">
-      <p className="text-sm leading-7 text-slate-400">
-        مبلغ را انتخاب کنید یا مقدار دلخواه وارد کنید.
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm leading-7 text-slate-400">
+          مبلغ را انتخاب کنید یا مقدار دلخواه وارد کنید.
+        </p>
+        <span className="shrink-0 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
+          USDT · BEP20
+        </span>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {PRESETS.map((preset) => (
+        {PRESETS.map((value) => (
           <button
-            key={preset.value}
+            key={value}
             type="button"
             onClick={() => {
               setCustomMode(false);
-              setAmount(String(preset.value));
+              setAmount(String(value));
             }}
             className={cn(
               "h-11 rounded-xl border text-sm transition",
-              !customMode && Number(amount) === preset.value
+              !customMode && Number(amount) === value
                 ? "border-orange-400 bg-orange-500/15 text-orange-200 shadow-[0_0_24px_rgba(249,115,22,0.25)]"
                 : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
             )}
           >
-            {preset.label}
+            {value} USDT
           </button>
         ))}
         <button
@@ -97,49 +91,18 @@ export function DonateForm({
         </button>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div className="space-y-2.5">
-          <Label htmlFor="amount">مبلغ دلخواه</Label>
-          <Input
-            id="amount"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => {
-              setCustomMode(true);
-              setAmount(e.target.value);
-            }}
-            placeholder="مثلاً 40"
-          />
-        </div>
-        <div className="space-y-2.5">
-          <Label>واحد</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setCurrency("USDT")}
-              className={cn(
-                "h-11 rounded-xl border text-sm transition",
-                currency === "USDT"
-                  ? "border-orange-400 bg-orange-500 text-white"
-                  : "border-white/12 bg-white/5 text-slate-200",
-              )}
-            >
-              USDT
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrency("USD")}
-              className={cn(
-                "h-11 rounded-xl border text-sm transition",
-                currency === "USD"
-                  ? "border-orange-400 bg-orange-500 text-white"
-                  : "border-white/12 bg-white/5 text-slate-200",
-              )}
-            >
-              USD
-            </button>
-          </div>
-        </div>
+      <div className="space-y-2.5">
+        <Label htmlFor="amount">مبلغ دلخواه (USDT)</Label>
+        <Input
+          id="amount"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => {
+            setCustomMode(true);
+            setAmount(e.target.value);
+          }}
+          placeholder="مثلاً 40"
+        />
       </div>
 
       <div className="space-y-2.5">
@@ -160,7 +123,7 @@ export function DonateForm({
         disabled={pending}
         onClick={submit}
       >
-        {pending ? "در حال انتقال..." : "پرداخت"}
+        {pending ? "در حال انتقال..." : "پرداخت USDT"}
         {!pending ? <ArrowLeft className="h-4 w-4" /> : null}
       </Button>
     </div>

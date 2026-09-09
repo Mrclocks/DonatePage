@@ -32,7 +32,6 @@ type SettingsView = {
   telegramBotToken: string;
   telegramChatId: string;
   telegramEnabled: boolean;
-  defaultCurrency: "USD" | "USDT";
   hasTelegramToken?: boolean;
 };
 
@@ -43,11 +42,9 @@ export function AdminPanel() {
     telegramBotToken: "",
     telegramChatId: "",
     telegramEnabled: false,
-    defaultCurrency: "USDT",
   });
   const [title, setTitle] = useState("");
   const [goalAmount, setGoalAmount] = useState("1000");
-  const [currency, setCurrency] = useState<"USD" | "USDT">("USDT");
   const [activate, setActivate] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -65,7 +62,6 @@ export function AdminPanel() {
     const settingsData = await settingsRes.json();
     setTargets(targetsData.targets || []);
     setSettings(settingsData.settings);
-    setCurrency(settingsData.settings.defaultCurrency || "USDT");
   }
 
   useEffect(() => {
@@ -81,7 +77,6 @@ export function AdminPanel() {
         body: JSON.stringify({
           title,
           goalAmount: Number(goalAmount),
-          currency,
           activate,
         }),
       });
@@ -151,9 +146,14 @@ export function AdminPanel() {
       ) : null}
 
       <GlassCard className="space-y-8">
-        <div className="flex items-center gap-2">
-          <Target className="h-4 w-4 text-orange-300" />
-          <h1 className="text-xl font-semibold text-white">ایجاد هدف جدید</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-orange-300" />
+            <h1 className="text-xl font-semibold text-white">ایجاد هدف جدید</h1>
+          </div>
+          <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
+            USDT · BEP20
+          </span>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2.5">
@@ -166,37 +166,21 @@ export function AdminPanel() {
             />
           </div>
           <div className="space-y-2.5">
-            <Label htmlFor="goal">مبلغ هدف ({currency})</Label>
+            <Label htmlFor="goal">مبلغ هدف (USDT)</Label>
             <Input
               id="goal"
               value={goalAmount}
               onChange={(e) => setGoalAmount(e.target.value)}
               inputMode="decimal"
-              placeholder={`0 ${currency}`}
+              placeholder="0 USDT"
             />
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
-          <div className="grid grid-cols-2 gap-3 sm:max-w-xs">
-            <Button
-              type="button"
-              variant={currency === "USDT" ? "default" : "outline"}
-              onClick={() => setCurrency("USDT")}
-            >
-              USDT
-            </Button>
-            <Button
-              type="button"
-              variant={currency === "USD" ? "default" : "outline"}
-              onClick={() => setCurrency("USD")}
-            >
-              USD
-            </Button>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <label className="inline-flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
             <Switch checked={activate} onCheckedChange={setActivate} />
             <span className="text-sm text-slate-200">فعال</span>
-          </div>
+          </label>
           <Button
             className="gap-2 rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
             disabled={pending}
@@ -248,16 +232,10 @@ export function AdminPanel() {
                     >
                       <td className="rounded-r-xl px-3 py-4">{target.title}</td>
                       <td className="px-3 py-4">
-                        {formatMoney(
-                          target.goalAmount,
-                          target.currency as "USD" | "USDT",
-                        )}
+                        {formatMoney(target.goalAmount)}
                       </td>
                       <td className="px-3 py-4">
-                        {formatMoney(
-                          target.raisedAmount,
-                          target.currency as "USD" | "USDT",
-                        )}
+                        {formatMoney(target.raisedAmount)}
                       </td>
                       <td className="px-3 py-4">
                         <div className="space-y-2">
@@ -349,7 +327,7 @@ export function AdminPanel() {
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-3">
             <Switch
               checked={settings.telegramEnabled}
               onCheckedChange={(checked) =>
@@ -359,7 +337,7 @@ export function AdminPanel() {
             <span className="text-sm text-slate-300">
               فعال کردن اطلاع‌رسانی‌ها
             </span>
-          </div>
+          </label>
           <div className="flex gap-3">
             <Button
               variant="outline"

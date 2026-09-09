@@ -5,16 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatMoney(amount: number, currency: "USD" | "USDT" = "USD") {
+export function formatMoney(amount: number) {
   const value = Number(amount || 0);
   const formatted = value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
-  if (currency === "USDT") {
-    return `${formatted} USDT`;
-  }
-  return `$${formatted} USD`;
+  return `${formatted} USDT`;
 }
 
 export function clampPercent(value: number) {

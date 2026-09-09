@@ -12,7 +12,6 @@ export const runtime = "nodejs";
 
 const schema = z.object({
   amount: z.number().positive().max(1_000_000),
-  currency: z.enum(["USD", "USDT"]).default("USDT"),
   donorName: z.string().trim().max(80).optional().nullable(),
 });
 
@@ -53,7 +52,8 @@ export async function POST(request: Request) {
     const payment = await createOnePayment({
       orderId,
       amount: parsed.data.amount,
-      currency: parsed.data.currency,
+      currency: "USDT",
+      chain: "BEP20",
       donorName: parsed.data.donorName,
       successUrl: `${base}/success?order=${orderId}`,
       cancelUrl: `${base}/?canceled=1`,
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     createPendingDonation({
       targetId: target.id,
       amount: parsed.data.amount,
-      currency: parsed.data.currency,
+      currency: "USDT",
       donorName: parsed.data.donorName,
       orderId,
       providerPaymentId: payment.providerPaymentId,

@@ -16,7 +16,6 @@ const RANK_STYLES = [
 
 export default function HomePage() {
   const { activeTarget, topDonors, history } = getPublicPageData();
-  const currency = (activeTarget?.currency as "USD" | "USDT" | undefined) || "USDT";
   const percent = activeTarget
     ? clampPercent(
         (Number(activeTarget.raisedAmount) / Number(activeTarget.goalAmount)) *
@@ -47,6 +46,7 @@ export default function HomePage() {
               <h1 className="text-2xl font-semibold leading-relaxed tracking-tight text-white md:text-[1.7rem]">
                 {activeTarget?.title || "هنوز تارگتی فعال نیست"}
               </h1>
+              <p className="text-sm text-slate-400">پرداخت فقط با USDT (BEP20)</p>
             </div>
             {activeTarget ? (
               <span className="rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1 text-sm font-medium text-orange-200">
@@ -62,14 +62,14 @@ export default function HomePage() {
                 <div className="inline-flex items-center gap-2">
                   <Wallet className="h-4 w-4 text-orange-300" />
                   <span>
-                    {formatMoney(activeTarget.raisedAmount, currency)}
+                    {formatMoney(activeTarget.raisedAmount)}
                     <span className="text-slate-500"> / </span>
-                    {formatMoney(activeTarget.goalAmount, currency)}
+                    {formatMoney(activeTarget.goalAmount)}
                   </span>
                 </div>
                 <div className="inline-flex items-center gap-2 text-slate-400">
                   <Target className="h-4 w-4 text-orange-300" />
-                  هدف: {formatMoney(activeTarget.goalAmount, currency)}
+                  هدف: {formatMoney(activeTarget.goalAmount)}
                 </div>
               </div>
             </div>
@@ -85,7 +85,7 @@ export default function HomePage() {
             <Trophy className="h-4 w-4 text-orange-300" />
             <h2 className="text-xl font-semibold text-white">حمایت کنید</h2>
           </div>
-          <DonateForm currencyDefault={currency} />
+          <DonateForm />
         </GlassCard>
 
         <GlassCard className="min-h-[280px]">
@@ -116,7 +116,7 @@ export default function HomePage() {
                     <span className="text-slate-100">{donor.donorName}</span>
                   </div>
                   <span className="text-sm font-medium text-orange-300">
-                    {formatMoney(donor.total, currency)}
+                    {formatMoney(donor.total)}
                   </span>
                 </div>
               ))
@@ -159,10 +159,7 @@ export default function HomePage() {
                     </div>
                     <Progress value={itemPercent} className="h-2" />
                     <p className="text-sm text-slate-300">
-                      {formatMoney(
-                        item.raisedAmount,
-                        item.currency as "USD" | "USDT",
-                      )}
+                      {formatMoney(item.raisedAmount)}
                     </p>
                   </div>
                 );

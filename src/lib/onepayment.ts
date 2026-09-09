@@ -3,7 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export type CreatePaymentInput = {
   orderId: string;
   amount: number;
-  currency: "USD" | "USDT";
+  currency: "USDT";
+  chain: "BEP20";
   donorName?: string | null;
   successUrl: string;
   cancelUrl: string;
@@ -65,7 +66,8 @@ export async function createOnePayment(
       JSON.stringify({
         orderId: input.orderId,
         amount: input.amount,
-        currency: input.currency,
+        currency: "USDT",
+        chain: "BEP20",
       }),
     ).toString("base64url");
     return {
@@ -73,6 +75,8 @@ export async function createOnePayment(
       providerPaymentId: `demo_${input.orderId}`,
     };
   }
+
+  // live path continues below — currency/chain locked to USDT BEP20
 
   const apiKey = process.env.ONEPAYMENT_API_KEY;
   if (!apiKey) {
@@ -82,7 +86,10 @@ export async function createOnePayment(
   const payload = {
     merchant_id: process.env.ONEPAYMENT_MERCHANT_ID || undefined,
     amount: Number(input.amount.toFixed(2)),
-    currency: input.currency,
+    currency: "USDT",
+    chain: "BEP20",
+    network: "BEP20",
+    token: "USDT",
     order_id: input.orderId,
     customer_name: input.donorName || undefined,
     success_url: input.successUrl,

@@ -6,14 +6,6 @@ export type AppSettings = {
   telegramBotToken: string;
   telegramChatId: string;
   telegramEnabled: boolean;
-  defaultCurrency: "USD" | "USDT";
-};
-
-const DEFAULTS: AppSettings = {
-  telegramBotToken: "",
-  telegramChatId: "",
-  telegramEnabled: false,
-  defaultCurrency: "USDT",
 };
 
 export async function getSettings(): Promise<AppSettings> {
@@ -28,10 +20,6 @@ export async function getSettings(): Promise<AppSettings> {
     telegramEnabled:
       (map.telegramEnabled ?? String(Boolean(process.env.TELEGRAM_BOT_TOKEN))) ===
       "true",
-    defaultCurrency:
-      map.defaultCurrency === "USD" || map.defaultCurrency === "USDT"
-        ? map.defaultCurrency
-        : DEFAULTS.defaultCurrency,
   };
 }
 
@@ -46,7 +34,7 @@ export function setSetting(key: keyof AppSettings, value: string) {
     .run();
 }
 
-export function setSettings( partial: Partial<AppSettings>) {
+export function setSettings(partial: Partial<AppSettings>) {
   for (const [key, value] of Object.entries(partial)) {
     if (value === undefined) continue;
     setSetting(key as keyof AppSettings, String(value));

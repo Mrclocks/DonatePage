@@ -8,7 +8,6 @@ export const runtime = "nodejs";
 const schema = z.object({
   title: z.string().trim().min(2).max(120),
   goalAmount: z.number().positive().max(100_000_000),
-  currency: z.enum(["USD", "USDT"]).default("USDT"),
   activate: z.boolean().default(true),
 });
 
@@ -30,7 +29,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const id = createTarget(parsed.data);
+  const id = createTarget({
+    title: parsed.data.title,
+    goalAmount: parsed.data.goalAmount,
+    currency: "USDT",
+    activate: parsed.data.activate,
+  });
   logAdmin("target_created", String(id));
   return NextResponse.json({ ok: true, id });
 }

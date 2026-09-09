@@ -67,7 +67,7 @@ export default function DemoPayClient() {
         {payload ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
             <p>
-              مبلغ: {payload.amount} {payload.currency}
+              مبلغ: {payload.amount} USDT (BEP20)
             </p>
             <p className="mt-2 break-all">Order: {payload.orderId}</p>
           </div>

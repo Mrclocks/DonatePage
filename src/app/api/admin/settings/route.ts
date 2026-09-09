@@ -10,7 +10,6 @@ const schema = z.object({
   telegramBotToken: z.string().max(200).optional(),
   telegramChatId: z.string().max(100).optional(),
   telegramEnabled: z.boolean().optional(),
-  defaultCurrency: z.enum(["USD", "USDT"]).optional(),
 });
 
 export async function GET() {
@@ -47,9 +46,6 @@ export async function PUT(request: Request) {
   }
   if (parsed.data.telegramEnabled !== undefined) {
     patch.telegramEnabled = parsed.data.telegramEnabled;
-  }
-  if (parsed.data.defaultCurrency !== undefined) {
-    patch.defaultCurrency = parsed.data.defaultCurrency;
   }
   if (
     parsed.data.telegramBotToken !== undefined &&

@@ -39,28 +39,33 @@ export default function AdminLoginPage() {
           <p className="text-sm text-orange-300/90">ورود</p>
           <h1 className="text-2xl font-semibold text-white">پنل مدیریت</h1>
         </div>
-        <div className="space-y-6">
+        <form
+          className="space-y-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            login();
+          }}
+        >
           <div className="space-y-2.5">
             <Label htmlFor="password">رمز عبور</Label>
             <Input
               id="password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") login();
-              }}
             />
           </div>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
           <Button
+            type="submit"
             className="w-full rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
             disabled={pending}
-            onClick={login}
           >
             {pending ? "..." : "ورود"}
           </Button>
-        </div>
+        </form>
       </GlassCard>
     </main>
   );

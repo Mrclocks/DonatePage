@@ -50,7 +50,7 @@ export function getTopDonors(limit = 10) {
 export function createTarget(input: {
   title: string;
   goalAmount: number;
-  currency: "USD" | "USDT";
+  currency?: "USDT";
   activate?: boolean;
 }) {
   const db = getDb();
@@ -75,7 +75,7 @@ export function createTarget(input: {
       title: input.title,
       goalAmount: input.goalAmount,
       raisedAmount: 0,
-      currency: input.currency,
+      currency: input.currency || "USDT",
       status: input.activate === false ? "completed" : "active",
       createdAt,
       completedAt: input.activate === false ? createdAt : null,
@@ -89,7 +89,7 @@ export function createTarget(input: {
 export function createPendingDonation(input: {
   targetId: number;
   amount: number;
-  currency: "USD" | "USDT";
+  currency?: "USDT";
   donorName?: string | null;
   orderId: string;
   providerPaymentId?: string | null;
@@ -99,7 +99,7 @@ export function createPendingDonation(input: {
     .values({
       targetId: input.targetId,
       amount: input.amount,
-      currency: input.currency,
+      currency: input.currency || "USDT",
       donorName: input.donorName || null,
       orderId: input.orderId,
       providerPaymentId: input.providerPaymentId || null,
