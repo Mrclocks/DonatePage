@@ -639,25 +639,25 @@ print_menu() {
 ${C_ORANGE}${C_BOLD}
   ╔════════════════════════════════════════╗
   ║           MrClock  ·  Donate           ║
-  ║              پنل نصب و مدیریت            ║
+  ║         Installer  ·  Manager          ║
   ╚════════════════════════════════════════╝${C_RESET}
-${C_DIM}  نسخه اسکریپت ${INSTALLER_VERSION}${ver:+ · git ${ver}}${C_RESET}
+${C_DIM}  script ${INSTALLER_VERSION}${ver:+ · git ${ver}}${C_RESET}
 
-  ${C_GREEN}●${C_RESET}  عملیات اصلی
-     ${C_CYAN}1${C_RESET}   نصب / نصب مجدد
-     ${C_CYAN}2${C_RESET}   به‌روزرسانی سریع     ${C_DIM}فقط اپ · بدون قطع SSL${C_RESET}
-     ${C_CYAN}3${C_RESET}   تنظیمات              ${C_DIM}بدون بیلد دوباره${C_RESET}
+  ${C_GREEN}●${C_RESET}  Main
+     ${C_CYAN}1${C_RESET}   Install / reinstall
+     ${C_CYAN}2${C_RESET}   Update              ${C_DIM}app only · SSL stays up${C_RESET}
+     ${C_CYAN}3${C_RESET}   Settings            ${C_DIM}no rebuild${C_RESET}
 
-  ${C_GREEN}●${C_RESET}  مانیتور
-     ${C_CYAN}4${C_RESET}   وضعیت سرویس‌ها
-     ${C_CYAN}5${C_RESET}   لاگ زنده
-     ${C_CYAN}6${C_RESET}   ری‌استارت
+  ${C_GREEN}●${C_RESET}  Monitor
+     ${C_CYAN}4${C_RESET}   Status
+     ${C_CYAN}5${C_RESET}   Logs
+     ${C_CYAN}6${C_RESET}   Restart
 
-  ${C_GREEN}●${C_RESET}  داده
-     ${C_CYAN}7${C_RESET}   بکاپ
-     ${C_CYAN}8${C_RESET}   حذف کامل
+  ${C_GREEN}●${C_RESET}  Data
+     ${C_CYAN}7${C_RESET}   Backup
+     ${C_CYAN}8${C_RESET}   Uninstall
 
-     ${C_CYAN}0${C_RESET}   خروج
+     ${C_CYAN}0${C_RESET}   Exit
 
 EOF
 }
@@ -666,7 +666,7 @@ main_menu() {
   ensure_repo
   while true; do
     print_menu
-    read -r -p "  انتخاب: " choice
+    read -r -p "  Select: " choice
     case "${choice}" in
       1) do_install ;;
       2) do_update ;;
@@ -678,11 +678,11 @@ main_menu() {
       8) do_uninstall ;;
       0|q|Q)
         clear_screen
-        echo "  خداحافظ."
+        echo "  Bye."
         exit 0
         ;;
       *)
-        warn "گزینه نامعتبر."
+        warn "Invalid option."
         sleep 1
         ;;
     esac

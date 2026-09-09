@@ -4,26 +4,26 @@ USDT (BEP20) donation page + admin + Telegram.
 
 ## Install (Ubuntu)
 
-یک خط — اگر از قبل نصب داری هم آخرین کد را می‌گیرد و منوی جدید باز می‌شود:
+One line (works if already installed — pulls latest `main`):
 
 ```bash
 cd ~; [ -d DonatePage/.git ] || git clone https://github.com/Mrclocks/DonatePage.git DonatePage; cd DonatePage; [ -f Caddyfile.local ] || { [ -f Caddyfile ] && ! grep -q '{$DOMAIN' Caddyfile 2>/dev/null && cp Caddyfile Caddyfile.local; true; }; git fetch origin main && git reset --hard origin/main && bash install.sh
 ```
 
-منوی درست این را نشان می‌دهد: **«پنل نصب و مدیریت»** و نسخه `2026.09.09`  
-اگر هنوز منوی انگلیسی قدیمی (`Ubuntu Menu` / `Diagnose 503`) دیدی، اسکریپت آپدیت نشده.
+Correct menu shows: **Installer · Manager** and version `2026.09.09`  
+If you still see old `Ubuntu Menu` / `Diagnose 503`, you are on the old script.
 
-| کلید | کار |
-|------|-----|
-| 1 | نصب |
-| 2 | به‌روزرسانی سریع |
-| 3 | تنظیمات |
-| 4 | وضعیت |
-| 5 | لاگ |
-| 6 | ری‌استارت |
-| 7 | بکاپ |
-| 8 | حذف کامل |
+| Key | Action |
+|-----|--------|
+| 1 | Install |
+| 2 | Update (fast) |
+| 3 | Settings |
+| 4 | Status |
+| 5 | Logs |
+| 6 | Restart |
+| 7 | Backup |
+| 8 | Uninstall |
 
-پورت‌ها: **80**، **443**
+Ports: **80**, **443**
 
-داده‌های پایدار: `data/` ، `.env` ، `Caddyfile.local` ، حجم TLS
+Survives updates: `data/`, `.env`, `Caddyfile.local`, TLS volume
