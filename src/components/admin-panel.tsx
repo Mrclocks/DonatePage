@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  KeyRound,
+  Link2,
   ListOrdered,
   Pencil,
   RefreshCw,
@@ -37,6 +39,14 @@ type SettingsView = {
   hasTelegramToken?: boolean;
 };
 
+function adminBaseFromLocation() {
+  const path = window.location.pathname.replace(/\/$/, "") || "/admin";
+  if (path.endsWith("/login")) {
+    return path.slice(0, -"/login".length) || "/admin";
+  }
+  return path;
+}
+
 export function AdminPanel() {
   const router = useRouter();
   const [targets, setTargets] = useState<TargetRow[]>([]);
@@ -52,19 +62,35 @@ export function AdminPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const [adminPath, setAdminPath] = useState("admin");
+  const [pathDraft, setPathDraft] = useState("admin");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   async function load() {
-    const [targetsRes, settingsRes] = await Promise.all([
+    const [targetsRes, settingsRes, pathRes] = await Promise.all([
       fetch("/api/admin/targets"),
       fetch("/api/admin/settings"),
+      fetch("/api/admin/path"),
     ]);
-    if (targetsRes.status === 401 || settingsRes.status === 401) {
-      router.replace("/admin/login");
+    if (
+      targetsRes.status === 401 ||
+      settingsRes.status === 401 ||
+      pathRes.status === 401
+    ) {
+      router.replace(`${adminBaseFromLocation()}/login`);
       return;
     }
     const targetsData = await targetsRes.json();
     const settingsData = await settingsRes.json();
+    const pathData = await pathRes.json();
     setTargets(targetsData.targets || []);
     setSettings(settingsData.settings);
+    if (pathData.path) {
+      setAdminPath(pathData.path);
+      setPathDraft(pathData.path);
+    }
   }
 
   useEffect(() => {
@@ -168,10 +194,56 @@ export function AdminPanel() {
     });
   }
 
+  function changePassword() {
+    setMessage(null);
+    if (newPassword !== confirmPassword) {
+      setMessage("تکرار رمز جدید یکسان نیست");
+      return;
+    }
+    startTransition(async () => {
+      const response = await fetch("/api/admin/password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(data.error || "تغییر رمز ناموفق");
+        return;
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setMessage("رمز ادمین تغییر کرد");
+    });
+  }
+
+  function changeAdminPath() {
+    setMessage(null);
+    startTransition(async () => {
+      const response = await fetch("/api/admin/path", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: pathDraft.trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(data.error || "تغییر مسیر ناموفق");
+        return;
+      }
+      setAdminPath(data.path);
+      setPathDraft(data.path);
+      setMessage(
+        `مسیر لاگین به /${data.path} تغییر کرد. برای همه کاربران، یک‌بار سرویس را ریستارت کنید.`,
+      );
+      router.replace(`/${data.path}`);
+    });
+  }
+
   function logout() {
     startTransition(async () => {
       await fetch("/api/admin/logout", { method: "POST" });
-      router.replace("/admin/login");
+      router.replace(`${adminBaseFromLocation()}/login`);
     });
   }
 
@@ -188,14 +260,12 @@ export function AdminPanel() {
         <p className="text-sm text-orange-300">{message}</p>
       ) : null}
 
-      <GlassCard className="space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-orange-300" />
-            <h1 className="text-xl font-semibold text-white">
-              {editingId ? "ویرایش هدف" : "ایجاد هدف جدید"}
-            </h1>
-          </div>
+      <GlassCard
+        className="space-y-8"
+        title={editingId ? "ویرایش هدف" : "ایجاد هدف جدید"}
+        icon={<Target className="h-6 w-6" strokeWidth={2.25} />}
+      >
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
             USDT · BEP20
           </span>
@@ -222,7 +292,7 @@ export function AdminPanel() {
           </div>
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <label className="inline-flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+          <label className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-3">
             <Switch checked={activate} onCheckedChange={setActivate} />
             <span className="text-sm text-slate-200">فعال</span>
           </label>
@@ -233,7 +303,7 @@ export function AdminPanel() {
               </Button>
             ) : null}
             <Button
-              className="gap-2 rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
+              className="gap-2"
               disabled={pending}
               onClick={createTarget}
             >
@@ -244,13 +314,11 @@ export function AdminPanel() {
         </div>
       </GlassCard>
 
-      <GlassCard className="space-y-6">
-        <div className="flex items-center gap-2">
-          <ListOrdered className="h-4 w-4 text-orange-300" />
-          <h2 className="text-xl font-semibold text-white">
-            اهداف قبلی و جاری
-          </h2>
-        </div>
+      <GlassCard
+        className="space-y-6"
+        title="اهداف قبلی و جاری"
+        icon={<ListOrdered className="h-6 w-6" strokeWidth={2.25} />}
+      >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-separate border-spacing-y-3 text-sm">
             <thead>
@@ -354,12 +422,89 @@ export function AdminPanel() {
         </div>
       </GlassCard>
 
-      <GlassCard className="space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Send className="h-4 w-4 text-orange-300" />
-            <h2 className="text-xl font-semibold text-white">تنظیمات تلگرام</h2>
+      <GlassCard
+        className="space-y-8"
+        title="امنیت و مسیر ورود"
+        icon={<KeyRound className="h-6 w-6" strokeWidth={2.25} />}
+      >
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="space-y-2.5">
+            <Label htmlFor="current-pass">رمز فعلی</Label>
+            <Input
+              id="current-pass"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
           </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="new-pass">رمز جدید</Label>
+            <Input
+              id="new-pass"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="confirm-pass">تکرار رمز جدید</Label>
+            <Input
+              id="confirm-pass"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+        </div>
+        <Button disabled={pending} onClick={changePassword}>
+          تغییر رمز ادمین
+        </Button>
+
+        <div className="border-t border-white/10 pt-8">
+          <div className="mb-4 flex items-center gap-2 text-sm text-slate-400">
+            <Link2 className="h-4 w-4 text-orange-300" />
+            مسیر فعلی لاگین:{" "}
+            <span className="font-medium text-orange-200">/{adminPath}</span>
+          </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="w-full space-y-2.5 sm:max-w-sm">
+              <Label htmlFor="admin-path">مسیر جدید (بدون /)</Label>
+              <Input
+                id="admin-path"
+                value={pathDraft}
+                onChange={(e) => setPathDraft(e.target.value)}
+                placeholder="admin"
+                dir="ltr"
+                className="text-left"
+              />
+            </div>
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={changeAdminPath}
+            >
+              ذخیره مسیر
+            </Button>
+          </div>
+          <p className="mt-3 text-xs leading-6 text-slate-500">
+            بعد از تغییر، آدرس ورود می‌شود{" "}
+            <span className="text-slate-300" dir="ltr">
+              /{pathDraft || "…"}/login
+            </span>
+            . برای اعمال کامل روی سرور، یک‌بار ریستارت کنید.
+          </p>
+        </div>
+      </GlassCard>
+
+      <GlassCard
+        className="space-y-8"
+        title="تنظیمات تلگرام"
+        icon={<Send className="h-6 w-6" strokeWidth={2.25} />}
+      >
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <span
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
               settings.telegramEnabled && settings.hasTelegramToken

@@ -1,4 +1,4 @@
-import { Crosshair, History, Target, Trophy, Users, Wallet } from "lucide-react";
+import { History, Target, Trophy, Users, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { DonateForm } from "@/components/donate-form";
 import { GlassCard } from "@/components/glass-card";
@@ -19,16 +19,16 @@ export default function HomePage() {
   let activeTarget: PublicData["activeTarget"] | null = null;
   let topDonors: PublicData["topDonors"] = [];
   let history: PublicData["history"] = [];
-  let bootError: string | null = null;
 
   try {
     const data = getPublicPageData();
     activeTarget = data.activeTarget;
     topDonors = data.topDonors;
     history = data.history;
-  } catch (error) {
-    bootError =
-      error instanceof Error ? error.message : "Database unavailable";
+  } catch {
+    activeTarget = null;
+    topDonors = [];
+    history = [];
   }
 
   const percent = activeTarget
@@ -39,46 +39,30 @@ export default function HomePage() {
     : 0;
 
   return (
-    <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-10 md:gap-14 md:px-8 md:py-16">
-      <header className="flex items-center justify-between">
+    <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-16">
+      <header className="flex items-center justify-start">
         <BrandMark large />
-        <a
-          href="/admin"
-          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 backdrop-blur transition hover:border-orange-400/40 hover:text-orange-200"
-        >
-          مدیریت
-        </a>
       </header>
 
-      {bootError ? (
-        <GlassCard>
-          <p className="text-sm text-red-300">
-            سرویس دیتابیس در دسترس نیست: {bootError}
-          </p>
-        </GlassCard>
-      ) : null}
-
-      <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
-        <GlassCard className="min-h-[320px] space-y-8">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 text-sm text-orange-300/90">
-                <Crosshair className="h-4 w-4" />
-                هدف جاری
+      <div className="mt-14 grid gap-10 md:mt-16 lg:grid-cols-2 lg:gap-12">
+        {activeTarget ? (
+          <GlassCard
+            className="min-h-[320px] space-y-8"
+            title="هدف جاری"
+            icon={<Target className="h-6 w-6" strokeWidth={2.25} />}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-3">
+                <h1 className="text-2xl font-semibold leading-relaxed tracking-tight text-white md:text-[1.7rem]">
+                  {activeTarget.title}
+                </h1>
+                <p className="text-sm text-slate-400">پرداخت فقط با USDT (BEP20)</p>
               </div>
-              <h1 className="text-2xl font-semibold leading-relaxed tracking-tight text-white md:text-[1.7rem]">
-                {activeTarget?.title || "هنوز تارگتی فعال نیست"}
-              </h1>
-              <p className="text-sm text-slate-400">پرداخت فقط با USDT (BEP20)</p>
-            </div>
-            {activeTarget ? (
               <span className="rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1 text-sm font-medium text-orange-200">
                 {Math.round(percent)}%
               </span>
-            ) : null}
-          </div>
+            </div>
 
-          {activeTarget ? (
             <div className="space-y-5">
               <Progress value={percent} className="h-3.5" />
               <div className="flex flex-col gap-4 text-sm text-slate-300 sm:flex-row sm:items-center sm:justify-between">
@@ -91,33 +75,30 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="inline-flex items-center gap-2 text-slate-400">
-                  <Target className="h-4 w-4 text-orange-300" />
                   هدف: {formatMoney(activeTarget.goalAmount)}
                 </div>
               </div>
             </div>
-          ) : (
-            <p className="text-sm leading-7 text-slate-400">
-              از پنل مدیریت یک تارگت فعال بسازید.
-            </p>
-          )}
-        </GlassCard>
+          </GlassCard>
+        ) : null}
 
-        <GlassCard className="min-h-[320px]">
-          <div className="mb-7 flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-orange-300" />
-            <h2 className="text-xl font-semibold text-white">حمایت کنید</h2>
-          </div>
+        <GlassCard
+          className={
+            activeTarget
+              ? "min-h-[320px]"
+              : "min-h-[320px] lg:col-span-2 lg:max-w-xl lg:justify-self-center"
+          }
+          title="حمایت کنید"
+          icon={<Trophy className="h-6 w-6" strokeWidth={2.25} />}
+        >
           <DonateForm />
         </GlassCard>
 
-        <GlassCard className="min-h-[280px]">
-          <div className="mb-8 flex items-center gap-2">
-            <Users className="h-4 w-4 text-orange-300" />
-            <h2 className="text-xl font-semibold text-white">
-              بیشترین دونیت‌کنندگان
-            </h2>
-          </div>
+        <GlassCard
+          className="min-h-[280px]"
+          title="بیشترین دونیت‌کنندگان"
+          icon={<Users className="h-6 w-6" strokeWidth={2.25} />}
+        >
           <div className="space-y-4">
             {topDonors.length === 0 ? (
               <p className="text-sm text-slate-400">هنوز دونیتی ثبت نشده</p>
@@ -147,11 +128,11 @@ export default function HomePage() {
           </div>
         </GlassCard>
 
-        <GlassCard className="min-h-[280px]">
-          <div className="mb-8 flex items-center gap-2">
-            <History className="h-4 w-4 text-orange-300" />
-            <h2 className="text-xl font-semibold text-white">سابقه اهداف</h2>
-          </div>
+        <GlassCard
+          className="min-h-[280px]"
+          title="سابقه اهداف"
+          icon={<History className="h-6 w-6" strokeWidth={2.25} />}
+        >
           <div className="space-y-4">
             {history.length === 0 ? (
               <p className="text-sm text-slate-400">تاریخچه‌ای نیست</p>

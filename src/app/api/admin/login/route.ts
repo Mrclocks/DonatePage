@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  adminPathCookieOptions,
   createAdminSession,
   validateAdminPassword,
 } from "@/lib/auth";
+import { getAdminPath } from "@/lib/admin-path";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -31,5 +33,9 @@ export async function POST(request: Request) {
   }
 
   await createAdminSession();
-  return NextResponse.json({ ok: true });
+  const adminPath = getAdminPath();
+  const response = NextResponse.json({ ok: true, adminPath });
+  const cookie = adminPathCookieOptions(adminPath);
+  response.cookies.set(cookie.name, cookie.value, cookie);
+  return response;
 }
