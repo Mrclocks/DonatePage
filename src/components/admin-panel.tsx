@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { Tag } from "@/components/ui/tag";
 import { clampPercent, formatMoney } from "@/lib/utils";
 
 type TargetRow = {
@@ -275,9 +276,9 @@ export function AdminPanel() {
           می‌توانید چند کمپین را هم‌زمان فعال کنید. «حمایت عمومی» همیشه باز است و قابل حذف نیست.
         </AlertBox>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
+          <Tag className="border-orange-400/30 bg-orange-500/10 text-orange-200">
             USDT · BEP20
-          </span>
+          </Tag>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           <div className="flex flex-col gap-2">

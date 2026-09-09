@@ -46,7 +46,7 @@ export default async function HomePage({
   return (
     <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-14">
       <header className="flex items-center justify-start">
-        <BrandMark large />
+        <BrandMark large caption="حمایت شفاف با USDT روی BEP20" />
       </header>
 
       <div className="mt-14 grid gap-8 md:mt-16 lg:grid-cols-2 lg:gap-8">
@@ -94,8 +94,10 @@ export default async function HomePage({
                         </div>
                         <p className="font-medium text-white">{campaign.title}</p>
                       </div>
-                      <span className="rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1 text-xs text-orange-200">
-                        {Math.round(percent)}%
+                      <span className="inline-flex items-center justify-center rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1.5 text-xs font-medium leading-none text-orange-200">
+                        <span className="leading-none translate-y-[0.5px]">
+                          {Math.round(percent)}%
+                        </span>
                       </span>
                     </div>
                     <Progress value={percent} className="h-2.5" />
@@ -193,8 +195,8 @@ export default async function HomePage({
                             : ""}
                         </p>
                       </div>
-                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-300">
-                        تکمیل شده
+                      <span className="inline-flex items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1.5 text-[11px] font-medium leading-none text-emerald-300">
+                        <span className="leading-none">تکمیل شده</span>
                       </span>
                     </div>
                     <Progress value={itemPercent} className="h-2" />
