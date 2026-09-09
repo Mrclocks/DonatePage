@@ -4,29 +4,26 @@ USDT (BEP20) donation page + admin + Telegram.
 
 ## Install (Ubuntu)
 
-One line (works even if already installed):
+یک خط — اگر از قبل نصب داری هم آخرین کد را می‌گیرد و منوی جدید باز می‌شود:
 
 ```bash
-[ -d DonatePage ] || git clone https://github.com/Mrclocks/DonatePage.git; cd DonatePage && bash install.sh
+cd ~; [ -d DonatePage/.git ] || git clone https://github.com/Mrclocks/DonatePage.git DonatePage; cd DonatePage; [ -f Caddyfile.local ] || { [ -f Caddyfile ] && ! grep -q '{$DOMAIN' Caddyfile 2>/dev/null && cp Caddyfile Caddyfile.local; true; }; git fetch origin main && git reset --hard origin/main && bash install.sh
 ```
 
-Or if you are already inside `DonatePage`:
+منوی درست این را نشان می‌دهد: **«پنل نصب و مدیریت»** و نسخه `2026.09.09`  
+اگر هنوز منوی انگلیسی قدیمی (`Ubuntu Menu` / `Diagnose 503`) دیدی، اسکریپت آپدیت نشده.
 
-```bash
-bash install.sh
-```
+| کلید | کار |
+|------|-----|
+| 1 | نصب |
+| 2 | به‌روزرسانی سریع |
+| 3 | تنظیمات |
+| 4 | وضعیت |
+| 5 | لاگ |
+| 6 | ری‌استارت |
+| 7 | بکاپ |
+| 8 | حذف کامل |
 
-| Menu | Action |
-|------|--------|
-| 1 | Install |
-| 2 | Update (fast) |
-| 3 | Settings |
-| 4 | Status |
-| 5 | Logs |
-| 6 | Restart |
-| 7 | Backup |
-| 8 | Uninstall |
+پورت‌ها: **80**، **443**
 
-Ports: **80**, **443**
-
-Data that survives updates: `data/` (SQLite), `.env`, `Caddyfile.local`, TLS volume.
+داده‌های پایدار: `data/` ، `.env` ، `Caddyfile.local` ، حجم TLS
