@@ -4,17 +4,15 @@ USDT (BEP20) donation page + admin + Telegram.
 
 ## Install (Ubuntu)
 
-One line:
+One line (works even if already installed):
 
 ```bash
-git clone https://github.com/Mrclocks/DonatePage.git && cd DonatePage && bash install.sh
+[ -d DonatePage ] || git clone https://github.com/Mrclocks/DonatePage.git; cd DonatePage && bash install.sh
 ```
 
-Or step by step:
+Or if you are already inside `DonatePage`:
 
 ```bash
-git clone https://github.com/Mrclocks/DonatePage.git
-cd DonatePage
 bash install.sh
 ```
 
