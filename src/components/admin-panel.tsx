@@ -263,7 +263,7 @@ export function AdminPanel() {
       <GlassCard
         className="space-y-8"
         title={editingId ? "ویرایش هدف" : "ایجاد هدف جدید"}
-        icon={<Target className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<Target className="h-7 w-7" strokeWidth={2.25} />}
       >
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
@@ -317,7 +317,7 @@ export function AdminPanel() {
       <GlassCard
         className="space-y-6"
         title="اهداف قبلی و جاری"
-        icon={<ListOrdered className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<ListOrdered className="h-7 w-7" strokeWidth={2.25} />}
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-separate border-spacing-y-3 text-sm">
@@ -425,7 +425,7 @@ export function AdminPanel() {
       <GlassCard
         className="space-y-8"
         title="امنیت و مسیر ورود"
-        icon={<KeyRound className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<KeyRound className="h-7 w-7" strokeWidth={2.25} />}
       >
         <div className="grid gap-6 md:grid-cols-3">
           <div className="space-y-2.5">
@@ -502,7 +502,7 @@ export function AdminPanel() {
       <GlassCard
         className="space-y-8"
         title="تنظیمات تلگرام"
-        icon={<Send className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<Send className="h-7 w-7" strokeWidth={2.25} />}
       >
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span

@@ -44,12 +44,12 @@ export default function HomePage() {
         <BrandMark large />
       </header>
 
-      <div className="mt-14 grid gap-10 md:mt-16 lg:grid-cols-2 lg:gap-12">
+      <div className="mt-16 grid gap-10 md:mt-20 lg:grid-cols-2 lg:gap-12">
         {activeTarget ? (
           <GlassCard
             className="min-h-[320px] space-y-8"
             title="هدف جاری"
-            icon={<Target className="h-6 w-6" strokeWidth={2.25} />}
+            icon={<Target className="h-7 w-7" strokeWidth={2.25} />}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-3">
@@ -89,7 +89,7 @@ export default function HomePage() {
               : "min-h-[320px] lg:col-span-2 lg:max-w-xl lg:justify-self-center"
           }
           title="حمایت کنید"
-          icon={<Trophy className="h-6 w-6" strokeWidth={2.25} />}
+          icon={<Trophy className="h-7 w-7" strokeWidth={2.25} />}
         >
           <DonateForm />
         </GlassCard>
@@ -97,7 +97,7 @@ export default function HomePage() {
         <GlassCard
           className="min-h-[280px]"
           title="بیشترین دونیت‌کنندگان"
-          icon={<Users className="h-6 w-6" strokeWidth={2.25} />}
+          icon={<Users className="h-7 w-7" strokeWidth={2.25} />}
         >
           <div className="space-y-4">
             {topDonors.length === 0 ? (
@@ -131,7 +131,7 @@ export default function HomePage() {
         <GlassCard
           className="min-h-[280px]"
           title="سابقه اهداف"
-          icon={<History className="h-6 w-6" strokeWidth={2.25} />}
+          icon={<History className="h-7 w-7" strokeWidth={2.25} />}
         >
           <div className="space-y-4">
             {history.length === 0 ? (
