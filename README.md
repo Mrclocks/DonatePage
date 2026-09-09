@@ -1,16 +1,22 @@
 # MrClock Donate
 
-Donation page with targets, top donors, history, admin, Telegram alerts.  
-Payments: **USDT (BEP20)** only.
+USDT (BEP20) donation page + admin + Telegram.
 
-## Install (Ubuntu one-liner)
+## Install (Ubuntu)
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Mrclocks/DonatePage/main/install.sh)
+git clone https://github.com/Mrclocks/DonatePage.git
+cd DonatePage
+bash install.sh
 ```
 
-Menu includes install, edit settings, logs, update, **full uninstall**, and diagnose 503.
+Menu opens. Choose `1` to install.
 
 Ports: **80**, **443**
 
-If you see HTTP 503: open the installer menu → `d) Diagnose / fix 503`
+## Later
+
+```bash
+cd DonatePage
+bash install.sh
+```
