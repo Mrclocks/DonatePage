@@ -36,6 +36,7 @@ yarn-error.log*
 
 # local data
 /data/
+/backups/
 Caddyfile.local
 
 # vercel

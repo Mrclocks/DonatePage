@@ -2,7 +2,6 @@ services:
   app:
     build:
       context: .
-      network: host
     restart: unless-stopped
     env_file:
       - .env
@@ -27,8 +26,8 @@ services:
         ]
       interval: 5s
       timeout: 5s
-      retries: 20
-      start_period: 60s
+      retries: 18
+      start_period: 40s
 
   caddy:
     image: caddy:2.9-alpine
@@ -41,7 +40,7 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
 
