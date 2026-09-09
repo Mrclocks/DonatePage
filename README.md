@@ -10,16 +10,17 @@ cd DonatePage
 bash install.sh
 ```
 
-Choose `1`.
+| Menu | Action |
+|------|--------|
+| 1 | Install |
+| 2 | Update (fast) |
+| 3 | Settings |
+| 4 | Status |
+| 5 | Logs |
+| 6 | Restart |
+| 7 | Backup |
+| 8 | Uninstall |
 
 Ports: **80**, **443**
 
-## If build fails on Oracle Cloud
-
-```bash
-cd DonatePage
-git pull
-bash install.sh
-```
-
-Choose `7` (update) or `1` again. Installer sets Docker DNS automatically.
+Data that survives updates: `data/` (SQLite), `.env`, `Caddyfile.local`, TLS volume.

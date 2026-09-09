@@ -1,14 +1,40 @@
 #!/usr/bin/env bash
-# MrClock Donate — Ubuntu installer (menu)
-# Usage:
+# MrClock Donate — installer
 #   git clone https://github.com/Mrclocks/DonatePage.git
-#   cd DonatePage
-#   bash install.sh
+#   cd DonatePage && bash install.sh
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/Mrclocks/DonatePage.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 DEFAULT_DIR="${INSTALL_DIR:-$HOME/DonatePage}"
+
+# ── colors ──────────────────────────────────────────────
+if [[ -t 1 ]]; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_DIM=$'\033[2m'
+  C_CYAN=$'\033[36m'
+  C_GREEN=$'\033[32m'
+  C_YELLOW=$'\033[33m'
+  C_RED=$'\033[31m'
+  C_ORANGE=$'\033[38;5;208m'
+else
+  C_RESET="" C_BOLD="" C_DIM="" C_CYAN="" C_GREEN="" C_YELLOW="" C_RED="" C_ORANGE=""
+fi
+
+clear_screen() {
+  printf '\033c' 2>/dev/null || clear || true
+}
+
+pause() {
+  echo
+  read -r -p "  Press Enter to continue... " _
+}
+
+ok()   { echo "${C_GREEN}✓${C_RESET} $*"; }
+warn() { echo "${C_YELLOW}!${C_RESET} $*"; }
+err()  { echo "${C_RED}✗${C_RESET} $*" >&2; }
+info() { echo "${C_CYAN}›${C_RESET} $*"; }
 
 env_escape() {
   local value="${1-}"
@@ -20,7 +46,7 @@ env_escape() {
   printf '"%s"' "$value"
 }
 
-need_root_apt() {
+need_root() {
   if [[ "${EUID}" -eq 0 ]]; then
     "$@"
   else
@@ -28,24 +54,19 @@ need_root_apt() {
   fi
 }
 
-detect_ubuntu() {
-  if [[ -f /etc/os-release ]]; then
-    # shellcheck disable=SC1091
-    . /etc/os-release
-    [[ "${ID:-}" == "ubuntu" || "${ID_LIKE:-}" == *"ubuntu"* ]]
+compose() {
+  export DOCKER_BUILDKIT=1
+  export COMPOSE_DOCKER_CLI_BUILD=1
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
     return
   fi
-  return 1
-}
-
-ensure_ubuntu_hint() {
-  if ! detect_ubuntu; then
-    echo "Warning: this installer targets Ubuntu. Continuing anyway..."
-  else
-    # shellcheck disable=SC1091
-    . /etc/os-release
-    echo "Detected: Ubuntu ${VERSION_ID:-unknown}"
+  if need_root docker compose version >/dev/null 2>&1; then
+    need_root docker compose "$@"
+    return
   fi
+  err "Docker Compose not found."
+  return 1
 }
 
 ensure_repo() {
@@ -54,9 +75,9 @@ ensure_repo() {
   elif [[ -f "$(dirname "${BASH_SOURCE[0]}")/docker-compose.yml" ]]; then
     ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   else
-    echo "Project not found here. Cloning into ${DEFAULT_DIR} ..."
-    need_root_apt apt-get update -y
-    need_root_apt apt-get install -y git ca-certificates curl
+    info "Cloning into ${DEFAULT_DIR} ..."
+    need_root apt-get update -y
+    need_root apt-get install -y git ca-certificates curl
     if [[ -d "${DEFAULT_DIR}/.git" ]]; then
       git -C "${DEFAULT_DIR}" fetch --depth 1 origin "${REPO_BRANCH}"
       git -C "${DEFAULT_DIR}" checkout "${REPO_BRANCH}"
@@ -68,120 +89,75 @@ ensure_repo() {
     ROOT_DIR="${DEFAULT_DIR}"
   fi
   cd "${ROOT_DIR}"
-  echo "Working directory: ${ROOT_DIR}"
 }
 
-install_docker_ubuntu() {
+install_docker() {
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-    echo "Docker already installed."
+    ok "Docker ready"
     return
   fi
 
-  echo "Installing Docker Engine + Compose (Ubuntu)..."
-  need_root_apt apt-get update -y
-  need_root_apt apt-get install -y ca-certificates curl gnupg
-  need_root_apt install -m 0755 -d /etc/apt/keyrings
+  info "Installing Docker..."
+  need_root apt-get update -y
+  need_root apt-get install -y ca-certificates curl gnupg
+  need_root install -m 0755 -d /etc/apt/keyrings
   if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-      | need_root_apt gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    need_root_apt chmod a+r /etc/apt/keyrings/docker.gpg
+      | need_root gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    need_root chmod a+r /etc/apt/keyrings/docker.gpg
   fi
 
   # shellcheck disable=SC1091
   . /etc/os-release
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
-    | need_root_apt tee /etc/apt/sources.list.d/docker.list >/dev/null
+    | need_root tee /etc/apt/sources.list.d/docker.list >/dev/null
 
-  need_root_apt apt-get update -y
-  need_root_apt apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  need_root apt-get update -y
+  need_root apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
   if [[ "${EUID}" -ne 0 ]]; then
-    need_root_apt usermod -aG docker "$USER" || true
-    echo "Added $USER to docker group. You may need to re-login for docker without sudo."
+    need_root usermod -aG docker "$USER" || true
+    warn "Log out/in once so docker works without sudo."
   fi
 
-  need_root_apt systemctl enable --now docker
-  echo "Docker installed."
-}
-
-fix_docker_dns() {
-  echo "Configuring Docker DNS (fixes Oracle Cloud build failures)..."
-  need_root_apt mkdir -p /etc/docker
-  if [[ -f /etc/docker/daemon.json ]]; then
-    need_root_apt cp /etc/docker/daemon.json "/etc/docker/daemon.json.bak.$(date +%s)" || true
-  fi
-  cat <<'EOF' | need_root_apt tee /etc/docker/daemon.json >/dev/null
-{
-  "dns": ["8.8.8.8", "1.1.1.1", "9.9.9.9"]
-}
-EOF
-  need_root_apt systemctl restart docker || need_root_apt service docker restart || true
-  sleep 2
-  echo "Docker DNS configured."
-}
-
-compose() {
-  if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
-    return
-  fi
-  if need_root_apt docker compose version >/dev/null 2>&1; then
-    need_root_apt docker compose "$@"
-    return
-  fi
-  echo "Docker Compose is not available."
-  return 1
+  need_root systemctl enable --now docker
+  ok "Docker installed"
 }
 
 prepare_data_dir() {
-  mkdir -p data
-  chmod 777 data 2>/dev/null || chmod 700 data || true
-  # Container user is uid 1001; make host mount writable for it.
-  if command -v sudo >/dev/null 2>&1; then
-    sudo chown -R 1001:1001 data 2>/dev/null || true
-  else
-    chown -R 1001:1001 data 2>/dev/null || true
-  fi
+  mkdir -p data backups
+  chmod 777 data 2>/dev/null || true
 }
 
-wait_for_app() {
-  echo "Waiting for app health..."
-  local i
-  for i in $(seq 1 40); do
-    if curl -fsS "http://127.0.0.1:3000/api/health" >/dev/null 2>&1; then
-      echo "App is healthy on :3000"
-      return 0
+# Prefer Caddyfile.local (gitignored). Migrate from old tracked Caddyfile if needed.
+ensure_caddy_local() {
+  if [[ -f Caddyfile.local ]]; then
+    return 0
+  fi
+  if [[ -f Caddyfile ]] && ! grep -q '{$DOMAIN:localhost}' Caddyfile 2>/dev/null; then
+    cp Caddyfile Caddyfile.local
+    ok "Migrated Caddyfile → Caddyfile.local"
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      git checkout -- Caddyfile 2>/dev/null || true
     fi
-    if compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
-      echo "App is healthy."
-      return 0
-    fi
-    sleep 3
-    echo "  still starting... (${i}/40)"
-  done
-  echo "App did not become healthy in time."
-  echo "---- app logs ----"
-  compose logs --tail=160 app || true
-  echo "---- caddy logs ----"
-  compose logs --tail=80 caddy || true
+    return 0
+  fi
   return 1
 }
 
-diagnose_503() {
-  echo
-  echo "=== Diagnose 503 ==="
-  compose ps || true
-  echo
-  echo "---- app logs ----"
-  compose logs --tail=150 app || true
-  echo
-  echo "---- caddy logs ----"
-  compose logs --tail=80 caddy || true
-  echo
-  echo "Trying rebuild with permission fix..."
-  prepare_data_dir
-  compose up -d --build --force-recreate
-  wait_for_app || true
+wait_for_app() {
+  info "Waiting for app..."
+  local i
+  for i in $(seq 1 24); do
+    if curl -fsS "http://127.0.0.1:3000/api/health" >/dev/null 2>&1; then
+      ok "App healthy"
+      return 0
+    fi
+    sleep 2
+  done
+  err "App did not become healthy."
+  compose logs --tail=80 app || true
+  return 1
 }
 
 read_secret() {
@@ -192,11 +168,11 @@ read_secret() {
   printf '%s' "${value}"
 }
 
-write_caddyfile() {
+write_caddy_local() {
   local domain="$1"
   local email="${2-}"
   if [[ -n "${email}" ]]; then
-    cat > Caddyfile <<EOF
+    cat > Caddyfile.local <<EOF
 {
 	email ${email}
 }
@@ -214,7 +190,7 @@ ${domain} {
 }
 EOF
   else
-    cat > Caddyfile <<EOF
+    cat > Caddyfile.local <<EOF
 ${domain} {
 	encode gzip zstd
 	header {
@@ -243,7 +219,6 @@ write_env_file() {
   local tg_chat="${10}"
   local admin_path="${11:-admin}"
 
-  # Keep path filesystem/url safe
   admin_path="$(printf '%s' "${admin_path}" | tr -cd 'A-Za-z0-9-_')"
   [[ -n "${admin_path}" ]] || admin_path="admin"
 
@@ -270,139 +245,218 @@ EOF
   printf '%s\n' "${admin_path}" > data/admin-path.txt
 }
 
-get_env() {
-  local key="$1"
-  if [[ -f .env ]]; then
-    # shellcheck disable=SC1091
-    set -a
-    # shellcheck disable=SC1091
-    . ./.env
-    set +a
-    eval "printf '%s' \"\${${key}-}\""
+load_env() {
+  [[ -f .env ]] || return 1
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+}
+
+current_domain() {
+  local d="${APP_URL-}"
+  d="${d#https://}"
+  d="${d#http://}"
+  d="${d%%/*}"
+  printf '%s' "$d"
+}
+
+open_firewall_hint() {
+  echo
+  info "Firewall needs ports 80 and 443 open."
+  if command -v ufw >/dev/null 2>&1; then
+    read -r -p "  Configure UFW now? [y/N]: " ufw_ans
+    if [[ "${ufw_ans,,}" == "y" || "${ufw_ans,,}" == "yes" ]]; then
+      need_root ufw allow 80/tcp || true
+      need_root ufw allow 443/tcp || true
+      need_root ufw allow 443/udp || true
+      need_root ufw allow OpenSSH || true
+      ok "UFW rules added (enable with: sudo ufw enable)"
+    fi
   fi
 }
 
-prompt_install() {
+# ── actions ─────────────────────────────────────────────
+
+do_install() {
+  clear_screen
   echo
-  echo "=== Fresh install / reinstall ==="
+  echo "  ${C_BOLD}${C_ORANGE}Install / Reinstall${C_RESET}"
+  echo "  ${C_DIM}────────────────────${C_RESET}"
+  echo
+
+  install_docker
+
   local domain acme_email admin_password api_key merchant_id webhook_secret tg_token tg_chat
-  local mode allow_demo session_secret
+  local mode allow_demo session_secret admin_path
 
-  read -r -p "Domain (example: donate.example.com): " domain
+  read -r -p "  Domain (donate.example.com): " domain
   domain="${domain// /}"
-  [[ -n "${domain}" ]] || { echo "Domain is required."; return 1; }
+  [[ -n "${domain}" ]] || { err "Domain required."; pause; return 1; }
 
-  read -r -p "Let's Encrypt email (optional): " acme_email
-  admin_password="$(read_secret "Admin password (min 8 chars): ")"
-  [[ ${#admin_password} -ge 8 ]] || { echo "Admin password must be at least 8 characters."; return 1; }
+  read -r -p "  Let's Encrypt email (optional): " acme_email
+  admin_password="$(read_secret "  Admin password (min 8): ")"
+  [[ ${#admin_password} -ge 8 ]] || { err "Password too short."; pause; return 1; }
 
-  local admin_path
-  read -r -p "Admin login path (default: admin): " admin_path
+  read -r -p "  Admin path [admin]: " admin_path
   admin_path="${admin_path:-admin}"
 
-  echo "Secrets are hidden while typing."
-  api_key="$(read_secret "OnePayment API Key (empty = demo): ")"
-  read -r -p "OnePayment Merchant ID (optional): " merchant_id
-  webhook_secret="$(read_secret "OnePayment Webhook Secret: ")"
-  tg_token="$(read_secret "Telegram Bot Token (optional): ")"
-  read -r -p "Telegram Chat ID (optional): " tg_chat
+  api_key="$(read_secret "  OnePayment API Key (empty = demo): ")"
+  read -r -p "  OnePayment Merchant ID (optional): " merchant_id
+  webhook_secret="$(read_secret "  OnePayment Webhook Secret: ")"
+  tg_token="$(read_secret "  Telegram Bot Token (optional): ")"
+  read -r -p "  Telegram Chat ID (optional): " tg_chat
 
   allow_demo="false"
   if [[ -z "${api_key}" ]]; then
-    read -r -p "Enable DEMO mode on this public server? [y/N]: " allow
+    read -r -p "  Enable DEMO on public server? [y/N]: " allow
     if [[ "${allow,,}" == "y" || "${allow,,}" == "yes" ]]; then
       mode="demo"
       allow_demo="true"
-      echo "Warning: demo mode enabled."
+      warn "Demo mode enabled"
     else
-      echo "API key required for live install."
+      err "API key required for live install."
+      pause
       return 1
     fi
   else
     mode="live"
-    [[ -n "${webhook_secret}" ]] || { echo "Webhook secret is required for live mode."; return 1; }
+    [[ -n "${webhook_secret}" ]] || { err "Webhook secret required."; pause; return 1; }
   fi
 
   session_secret="$(openssl rand -hex 32)"
   prepare_data_dir
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
     "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
-  write_caddyfile "${domain}" "${acme_email}"
+  write_caddy_local "${domain}" "${acme_email}"
 
   open_firewall_hint
-  echo "Building and starting services..."
-  compose up -d --build --force-recreate
+  echo
+  info "Building (first time can take a few minutes)..."
+  compose up -d --build --remove-orphans
+
   if wait_for_app; then
     echo
-    echo "Install complete."
-    echo "Site:    https://${domain}"
-    echo "Admin:   https://${domain}/${admin_path}/login"
-    echo "Webhook: https://${domain}/api/webhook/onepayment"
-    echo "DNS must point to this server for SSL."
+    ok "Install complete"
+    echo "    Site:    https://${domain}"
+    echo "    Admin:   https://${domain}/${admin_path}/login"
+    echo "    Webhook: https://${domain}/api/webhook/onepayment"
   else
-    echo
-    echo "Install finished but app is unhealthy (this usually causes HTTP 503)."
-    echo "Use menu option: Diagnose / fix 503"
+    err "Install finished but app is unhealthy."
+    pause
     return 1
   fi
+  pause
 }
 
-open_firewall_hint() {
+do_update() {
+  clear_screen
   echo
-  echo "Open firewall ports if needed: 80/tcp, 443/tcp (443/udp optional)."
-  if command -v ufw >/dev/null 2>&1; then
-    read -r -p "Configure UFW for 80/443 now? [y/N]: " ufw_ans
-    if [[ "${ufw_ans,,}" == "y" || "${ufw_ans,,}" == "yes" ]]; then
-      need_root_apt ufw allow 80/tcp || true
-      need_root_apt ufw allow 443/tcp || true
-      need_root_apt ufw allow 443/udp || true
-      need_root_apt ufw allow OpenSSH || true
-      echo "UFW rules added (enable with: sudo ufw enable)."
-    fi
+  echo "  ${C_BOLD}${C_ORANGE}Update${C_RESET}"
+  echo "  ${C_DIM}──────${C_RESET}"
+  echo
+
+  [[ -f .env ]] || { err "No .env — run Install first."; pause; return 1; }
+  ensure_caddy_local || { err "Missing Caddyfile.local — run Install or Settings."; pause; return 1; }
+
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    err "Not a git repo."
+    pause
+    return 1
   fi
+
+  # Keep local config out of git's way
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git checkout -- Caddyfile 2>/dev/null || true
+  fi
+
+  info "Fetching ${REPO_BRANCH}..."
+  if ! git fetch origin "${REPO_BRANCH}"; then
+    err "git fetch failed."
+    pause
+    return 1
+  fi
+
+  local before after
+  before="$(git rev-parse HEAD)"
+  if ! git merge --ff-only "origin/${REPO_BRANCH}"; then
+    err "Fast-forward failed. Resolve local conflicts, then retry."
+    git status -sb || true
+    pause
+    return 1
+  fi
+  after="$(git rev-parse HEAD)"
+
+  if [[ "${before}" == "${after}" ]]; then
+    ok "Already up to date (${after:0:7})"
+  else
+    ok "Code updated ${before:0:7} → ${after:0:7}"
+  fi
+
+  prepare_data_dir
+  info "Building app image (cached layers skip when possible)..."
+  if ! compose build app; then
+    err "Build failed."
+    pause
+    return 1
+  fi
+
+  info "Restarting app (Caddy stays up)..."
+  compose up -d --no-deps --force-recreate --remove-orphans app
+
+  # Start caddy if it isn't running (first update after migration, etc.)
+  if ! compose ps 2>/dev/null | grep -Eiq 'caddy[[:space:]].*(running|up)'; then
+    info "Starting Caddy..."
+    compose up -d caddy
+  fi
+
+  if wait_for_app; then
+    ok "Update complete"
+  else
+    err "Update failed health check."
+    pause
+    return 1
+  fi
+  pause
 }
 
-edit_settings() {
+do_settings() {
+  clear_screen
   echo
-  echo "=== Edit settings ==="
-  [[ -f .env ]] || { echo ".env not found. Run install first."; return 1; }
+  echo "  ${C_BOLD}${C_ORANGE}Settings${C_RESET}"
+  echo "  ${C_DIM}────────${C_RESET}"
+  echo
 
-  # shellcheck disable=SC1091
-  set -a
-  # shellcheck disable=SC1091
-  . ./.env
-  set +a
+  load_env || { err "No .env — run Install first."; pause; return 1; }
 
-  local current_domain="${APP_URL#https://}"
-  current_domain="${current_domain#http://}"
-  current_domain="${current_domain%%/*}"
+  local domain admin_password api_key merchant_id webhook_secret tg_token tg_chat acme_email
+  local mode allow_demo admin_path session_secret
+  local cur
+  cur="$(current_domain)"
 
-  local domain admin_password api_key merchant_id webhook_secret tg_token tg_chat acme_email mode allow_demo
-  read -r -p "Domain [${current_domain}]: " domain
-  domain="${domain:-$current_domain}"
+  read -r -p "  Domain [${cur}]: " domain
+  domain="${domain:-$cur}"
 
-  read -r -p "Let's Encrypt email (optional, Enter to skip rewrite email): " acme_email
+  read -r -p "  Let's Encrypt email (optional): " acme_email
+
   local new_admin
-  new_admin="$(read_secret "New admin password (Enter = keep): ")"
+  new_admin="$(read_secret "  New admin password (Enter = keep): ")"
   admin_password="${new_admin:-${ADMIN_PASSWORD}}"
 
-  local admin_path
-  read -r -p "Admin login path [${ADMIN_PATH:-admin}]: " admin_path
+  read -r -p "  Admin path [${ADMIN_PATH:-admin}]: " admin_path
   admin_path="${admin_path:-${ADMIN_PATH:-admin}}"
 
-  api_key="$(read_secret "OnePayment API Key (Enter = keep): ")"
+  api_key="$(read_secret "  OnePayment API Key (Enter = keep): ")"
   api_key="${api_key:-${ONEPAYMENT_API_KEY}}"
-  read -r -p "OnePayment Merchant ID [${ONEPAYMENT_MERCHANT_ID}]: " merchant_id
-  merchant_id="${merchant_id:-${ONEPAYMENT_MERCHANT_ID}}"
-  webhook_secret="$(read_secret "OnePayment Webhook Secret (Enter = keep): ")"
-  webhook_secret="${webhook_secret:-${ONEPAYMENT_WEBHOOK_SECRET}}"
-  tg_token="$(read_secret "Telegram Bot Token (Enter = keep): ")"
-  tg_token="${tg_token:-${TELEGRAM_BOT_TOKEN}}"
-  read -r -p "Telegram Chat ID [${TELEGRAM_CHAT_ID}]: " tg_chat
-  tg_chat="${tg_chat:-${TELEGRAM_CHAT_ID}}"
+  read -r -p "  OnePayment Merchant ID [${ONEPAYMENT_MERCHANT_ID-}]: " merchant_id
+  merchant_id="${merchant_id:-${ONEPAYMENT_MERCHANT_ID-}}"
+  webhook_secret="$(read_secret "  OnePayment Webhook Secret (Enter = keep): ")"
+  webhook_secret="${webhook_secret:-${ONEPAYMENT_WEBHOOK_SECRET-}}"
+  tg_token="$(read_secret "  Telegram Bot Token (Enter = keep): ")"
+  tg_token="${tg_token:-${TELEGRAM_BOT_TOKEN-}}"
+  read -r -p "  Telegram Chat ID [${TELEGRAM_CHAT_ID-}]: " tg_chat
+  tg_chat="${tg_chat:-${TELEGRAM_CHAT_ID-}}"
 
-  mode="${ONEPAYMENT_MODE:-live}"
-  allow_demo="${ONEPAYMENT_ALLOW_DEMO:-false}"
   if [[ -z "${api_key}" ]]; then
     mode="demo"
     allow_demo="true"
@@ -411,87 +465,91 @@ edit_settings() {
     allow_demo="false"
   fi
 
-  local session_secret="${SESSION_SECRET:-$(openssl rand -hex 32)}"
+  session_secret="${SESSION_SECRET:-$(openssl rand -hex 32)}"
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
     "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
-  write_caddyfile "${domain}" "${acme_email}"
+  write_caddy_local "${domain}" "${acme_email}"
 
-  echo "Restarting services..."
+  info "Applying settings (no image rebuild)..."
   prepare_data_dir
-  compose up -d --build --force-recreate
+  compose up -d --force-recreate --no-build --remove-orphans
   wait_for_app || true
-  echo "Settings updated."
-  echo "Site: https://${domain}"
-  echo "Admin: https://${domain}/${admin_path}/login"
+  ok "Settings saved"
+  echo "    Site:  https://${domain}"
+  echo "    Admin: https://${domain}/${admin_path}/login"
+  pause
 }
 
-show_status() {
+do_status() {
+  clear_screen
   echo
-  echo "=== Status ==="
+  echo "  ${C_BOLD}${C_ORANGE}Status${C_RESET}"
+  echo "  ${C_DIM}──────${C_RESET}"
+  echo
   compose ps || true
   echo
-  if [[ -f .env ]]; then
-    # shellcheck disable=SC1091
-    set -a
-    # shellcheck disable=SC1091
-    . ./.env
-    set +a
-    echo "APP_URL=${APP_URL-}"
-    echo "ONEPAYMENT_MODE=${ONEPAYMENT_MODE-}"
+  if load_env 2>/dev/null; then
+    echo "  APP_URL=${APP_URL-}"
+    echo "  ADMIN_PATH=${ADMIN_PATH-admin}"
+    echo "  MODE=${ONEPAYMENT_MODE-}"
   fi
+  if curl -fsS "http://127.0.0.1:3000/api/health" >/dev/null 2>&1; then
+    echo
+    ok "Health OK"
+  else
+    echo
+    warn "Health check failed on :3000"
+  fi
+  pause
 }
 
-show_logs() {
+do_logs() {
+  clear_screen
   echo
-  echo "=== Logs (Ctrl+C to stop) ==="
-  compose logs -f --tail=100
+  echo "  ${C_BOLD}${C_ORANGE}Logs${C_RESET}  ${C_DIM}(Ctrl+C to stop)${C_RESET}"
+  echo
+  compose logs -f --tail=80 || true
 }
 
-restart_services() {
-  echo "Restarting..."
+do_restart() {
+  clear_screen
+  echo
+  info "Restarting..."
   compose restart
-  echo "Done."
-}
-
-rebuild_services() {
-  echo "Rebuilding..."
-  prepare_data_dir
-  compose up -d --build --force-recreate
   wait_for_app || true
-  echo "Done."
+  ok "Restarted"
+  pause
 }
 
-update_from_git() {
-  echo "Pulling latest code..."
-  git pull --ff-only origin "${REPO_BRANCH}" || git pull --ff-only
-  prepare_data_dir
-  compose up -d --build --force-recreate
-  wait_for_app || true
-  echo "Updated."
-}
-
-backup_data() {
+do_backup() {
+  clear_screen
+  echo
+  echo "  ${C_BOLD}${C_ORANGE}Backup${C_RESET}"
+  echo "  ${C_DIM}──────${C_RESET}"
+  echo
   mkdir -p backups
   local stamp file
   stamp="$(date +%Y%m%d-%H%M%S)"
-  file="backups/mrclock-data-${stamp}.tgz"
-  tar -czf "${file}" data .env Caddyfile 2>/dev/null || tar -czf "${file}" data
-  echo "Backup saved: ${file}"
+  file="backups/mrclock-${stamp}.tgz"
+  tar -czf "${file}" data .env Caddyfile.local 2>/dev/null \
+    || tar -czf "${file}" data .env 2>/dev/null \
+    || tar -czf "${file}" data
+  ok "Saved ${file}"
+  pause
 }
 
-uninstall_all() {
+do_uninstall() {
+  clear_screen
   echo
-  echo "=== FULL UNINSTALL ==="
-  echo "This will remove MrClock Donate services completely:"
-  echo "  - containers, networks"
-  echo "  - project images"
-  echo "  - caddy/app volumes"
-  echo "  - local data/, .env, backups/"
+  echo "  ${C_BOLD}${C_RED}Uninstall${C_RESET}"
+  echo "  ${C_DIM}─────────${C_RESET}"
   echo
-  read -r -p "Type DELETE to confirm full uninstall: " confirm
-  [[ "${confirm}" == "DELETE" ]] || { echo "Cancelled."; return 0; }
+  echo "  Removes containers, images, volumes, data/, .env, backups/"
+  echo
+  read -r -p "  Type DELETE to confirm: " confirm
+  [[ "${confirm}" == "DELETE" ]] || { warn "Cancelled."; pause; return 0; }
 
-  echo "Stopping and removing compose stack (images + volumes)..."
+  info "Stopping stack..."
   compose down --rmi all --volumes --remove-orphans || true
 
   local project docker_bin
@@ -502,7 +560,6 @@ uninstall_all() {
     docker_bin="sudo docker"
   fi
 
-  echo "Cleaning leftover Docker resources..."
   ${docker_bin} images --format '{{.Repository}}:{{.Tag}} {{.ID}}' 2>/dev/null | while read -r repo id; do
     case "${repo}" in
       *donatepage*|*mrclock*|*donate*|"${project}"* )
@@ -519,101 +576,88 @@ uninstall_all() {
     esac
   done || true
 
-  ${docker_bin} network ls --format '{{.Name}}' 2>/dev/null | while read -r net; do
-    case "${net}" in
-      *donate*|*mrclock*|"${project}"* )
-        ${docker_bin} network rm "${net}" >/dev/null 2>&1 || true
-        ;;
-    esac
-  done || true
-
-  echo "Deleting local app files..."
   rm -rf data backups .env .env.bak Caddyfile.local 2>/dev/null || true
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git checkout -- Caddyfile 2>/dev/null || true
   fi
 
-  read -r -p "Also remove Docker Engine installed for this app? [y/N]: " remove_docker
+  read -r -p "  Also remove Docker Engine? [y/N]: " remove_docker
   if [[ "${remove_docker,,}" == "y" || "${remove_docker,,}" == "yes" ]]; then
-    echo "Removing Docker Engine packages (Ubuntu)..."
-    need_root_apt systemctl stop docker docker.socket containerd 2>/dev/null || true
-    need_root_apt apt-get purge -y \
+    need_root systemctl stop docker docker.socket containerd 2>/dev/null || true
+    need_root apt-get purge -y \
       docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras \
       2>/dev/null || true
-    need_root_apt apt-get autoremove -y --purge 2>/dev/null || true
-    need_root_apt rm -f /etc/apt/sources.list.d/docker.list 2>/dev/null || true
-    need_root_apt rm -f /etc/apt/keyrings/docker.gpg 2>/dev/null || true
-    need_root_apt rm -rf /var/lib/docker /var/lib/containerd 2>/dev/null || true
-    echo "Docker Engine removed."
+    need_root apt-get autoremove -y --purge 2>/dev/null || true
+    need_root rm -f /etc/apt/sources.list.d/docker.list /etc/apt/keyrings/docker.gpg 2>/dev/null || true
+    need_root rm -rf /var/lib/docker /var/lib/containerd 2>/dev/null || true
+    ok "Docker Engine removed"
   fi
 
-  read -r -p "Delete this project folder ($(pwd))? [y/N]: " wipe_dir
+  read -r -p "  Delete project folder ($(pwd))? [y/N]: " wipe_dir
   if [[ "${wipe_dir,,}" == "y" || "${wipe_dir,,}" == "yes" ]]; then
     local victim
     victim="$(pwd)"
     cd /
-    echo "Removing ${victim} ..."
     rm -rf "${victim}"
-    echo "Project folder deleted."
-    echo "Uninstall finished. Exiting."
+    ok "Folder deleted. Bye."
     exit 0
   fi
 
-  echo "Full uninstall finished."
+  ok "Uninstall finished"
+  pause
 }
 
+# ── menu ────────────────────────────────────────────────
+
 print_menu() {
+  clear_screen
+  local ver=""
+  if git rev-parse --short HEAD >/dev/null 2>&1; then
+    ver=" · $(git rev-parse --short HEAD)"
+  fi
+
   cat <<EOF
 
-========================================
- MrClock Donate — Ubuntu Menu
-========================================
- 1) Install / reinstall (Docker + SSL)
- 2) Edit settings
- 3) Status
- 4) Logs
- 5) Restart
- 6) Rebuild
- 7) Update from Git
- 8) Backup data
- 9) Full uninstall (purge everything)
- d) Diagnose / fix 503
- 0) Exit
+  ${C_BOLD}${C_ORANGE}╭──────────────────────────────────╮${C_RESET}
+  ${C_BOLD}${C_ORANGE}│${C_RESET}   ${C_BOLD}MrClock Donate${C_RESET}  ${C_DIM}installer${ver}${C_RESET}   ${C_BOLD}${C_ORANGE}│${C_RESET}
+  ${C_BOLD}${C_ORANGE}╰──────────────────────────────────╯${C_RESET}
+
+    ${C_CYAN}1${C_RESET}  Install
+    ${C_CYAN}2${C_RESET}  Update          ${C_DIM}git pull + rebuild app${C_RESET}
+    ${C_CYAN}3${C_RESET}  Settings        ${C_DIM}no rebuild${C_RESET}
+    ${C_CYAN}4${C_RESET}  Status
+    ${C_CYAN}5${C_RESET}  Logs
+    ${C_CYAN}6${C_RESET}  Restart
+    ${C_CYAN}7${C_RESET}  Backup
+    ${C_CYAN}8${C_RESET}  Uninstall
+    ${C_CYAN}0${C_RESET}  Exit
+
 EOF
 }
 
 main_menu() {
-  ensure_ubuntu_hint
   ensure_repo
   while true; do
     print_menu
-    read -r -p "Select: " choice
+    read -r -p "  Select: " choice
     case "${choice}" in
-      1)
-        install_docker_ubuntu
-        fix_docker_dns
-        prompt_install
+      1) do_install ;;
+      2) do_update ;;
+      3) do_settings ;;
+      4) do_status ;;
+      5) do_logs ;;
+      6) do_restart ;;
+      7) do_backup ;;
+      8) do_uninstall ;;
+      0|q|Q)
+        clear_screen
+        echo "  Bye."
+        exit 0
         ;;
-      2) edit_settings ;;
-      3) show_status ;;
-      4) show_logs ;;
-      5) restart_services ;;
-      6)
-        fix_docker_dns
-        rebuild_services
+      *)
+        warn "Invalid option."
+        sleep 1
         ;;
-      7)
-        fix_docker_dns
-        update_from_git
-        ;;
-      8) backup_data ;;
-      9) uninstall_all ;;
-      d|D)
-        fix_docker_dns
-        diagnose_503
-        ;;
-      0|q|Q) echo "Bye."; exit 0 ;;
-      *) echo "Invalid option." ;;
     esac
   done
 }
