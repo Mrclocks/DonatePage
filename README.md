@@ -9,16 +9,8 @@ Payments: **USDT (BEP20)** only.
 bash <(curl -fsSL https://raw.githubusercontent.com/Mrclocks/DonatePage/main/install.sh)
 ```
 
-Opens a menu:
-
-1. Install / reinstall (Docker + SSL)  
-2. Edit settings  
-3. Status  
-4. Logs  
-5. Restart  
-6. Rebuild  
-7. Update from Git  
-8. Backup data  
-9. Uninstall / delete  
+Menu includes install, edit settings, logs, update, uninstall, and **Diagnose / fix 503**.
 
 Ports: **80**, **443**
+
+If you see HTTP 503: open the installer menu → `d) Diagnose / fix 503`
