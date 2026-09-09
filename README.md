@@ -9,7 +9,7 @@ Payments: **USDT (BEP20)** only.
 bash <(curl -fsSL https://raw.githubusercontent.com/Mrclocks/DonatePage/main/install.sh)
 ```
 
-Menu includes install, edit settings, logs, update, uninstall, and **Diagnose / fix 503**.
+Menu includes install, edit settings, logs, update, **full uninstall**, and diagnose 503.
 
 Ports: **80**, **443**
 

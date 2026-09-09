@@ -443,22 +443,85 @@ backup_data() {
 
 uninstall_all() {
   echo
-  echo "=== Uninstall / delete ==="
-  read -r -p "Stop and remove containers? [y/N]: " ans
-  [[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]] || return 0
-  compose down --remove-orphans || true
+  echo "=== FULL UNINSTALL ==="
+  echo "This will remove MrClock Donate services completely:"
+  echo "  - containers, networks"
+  echo "  - project images"
+  echo "  - caddy/app volumes"
+  echo "  - local data/, .env, backups/"
+  echo
+  read -r -p "Type DELETE to confirm full uninstall: " confirm
+  [[ "${confirm}" == "DELETE" ]] || { echo "Cancelled."; return 0; }
 
-  read -r -p "Also delete data/ and .env? THIS CANNOT BE UNDONE [y/N]: " wipe
-  if [[ "${wipe,,}" == "y" || "${wipe,,}" == "yes" ]]; then
-    rm -rf data .env
-    echo "data/ and .env deleted."
+  echo "Stopping and removing compose stack (images + volumes)..."
+  compose down --rmi all --volumes --remove-orphans || true
+
+  local project docker_bin
+  project="$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')"
+  if docker info >/dev/null 2>&1; then
+    docker_bin="docker"
+  else
+    docker_bin="sudo docker"
   fi
 
-  read -r -p "Remove Docker images for this project? [y/N]: " imgs
-  if [[ "${imgs,,}" == "y" || "${imgs,,}" == "yes" ]]; then
-    compose down --rmi local --volumes || true
+  echo "Cleaning leftover Docker resources..."
+  ${docker_bin} images --format '{{.Repository}}:{{.Tag}} {{.ID}}' 2>/dev/null | while read -r repo id; do
+    case "${repo}" in
+      *donatepage*|*mrclock*|*donate*|"${project}"* )
+        ${docker_bin} rmi -f "${id}" >/dev/null 2>&1 || true
+        ;;
+    esac
+  done || true
+
+  ${docker_bin} volume ls --format '{{.Name}}' 2>/dev/null | while read -r vol; do
+    case "${vol}" in
+      *caddy_data*|*caddy_config*|*donate*|*mrclock*|"${project}"* )
+        ${docker_bin} volume rm -f "${vol}" >/dev/null 2>&1 || true
+        ;;
+    esac
+  done || true
+
+  ${docker_bin} network ls --format '{{.Name}}' 2>/dev/null | while read -r net; do
+    case "${net}" in
+      *donate*|*mrclock*|"${project}"* )
+        ${docker_bin} network rm "${net}" >/dev/null 2>&1 || true
+        ;;
+    esac
+  done || true
+
+  echo "Deleting local app files..."
+  rm -rf data backups .env .env.bak Caddyfile.local 2>/dev/null || true
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git checkout -- Caddyfile 2>/dev/null || true
   fi
-  echo "Uninstall finished."
+
+  read -r -p "Also remove Docker Engine installed for this app? [y/N]: " remove_docker
+  if [[ "${remove_docker,,}" == "y" || "${remove_docker,,}" == "yes" ]]; then
+    echo "Removing Docker Engine packages (Ubuntu)..."
+    need_root_apt systemctl stop docker docker.socket containerd 2>/dev/null || true
+    need_root_apt apt-get purge -y \
+      docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras \
+      2>/dev/null || true
+    need_root_apt apt-get autoremove -y --purge 2>/dev/null || true
+    need_root_apt rm -f /etc/apt/sources.list.d/docker.list 2>/dev/null || true
+    need_root_apt rm -f /etc/apt/keyrings/docker.gpg 2>/dev/null || true
+    need_root_apt rm -rf /var/lib/docker /var/lib/containerd 2>/dev/null || true
+    echo "Docker Engine removed."
+  fi
+
+  read -r -p "Delete this project folder ($(pwd))? [y/N]: " wipe_dir
+  if [[ "${wipe_dir,,}" == "y" || "${wipe_dir,,}" == "yes" ]]; then
+    local victim
+    victim="$(pwd)"
+    cd /
+    echo "Removing ${victim} ..."
+    rm -rf "${victim}"
+    echo "Project folder deleted."
+    echo "Uninstall finished. Exiting."
+    exit 0
+  fi
+
+  echo "Full uninstall finished."
 }
 
 print_menu() {
@@ -475,7 +538,7 @@ print_menu() {
  6) Rebuild
  7) Update from Git
  8) Backup data
- 9) Uninstall / delete
+ 9) Full uninstall (purge everything)
  d) Diagnose / fix 503
  0) Exit
 EOF
