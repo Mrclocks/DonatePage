@@ -6,9 +6,10 @@ import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tag } from "@/components/ui/tag";
 import { clampPercent, cn, formatMoney } from "@/lib/utils";
 
-const PRESETS = [5, 15, 25, 50];
+const PRESETS = [5, 10, 25];
 
 export type DonateDestination = {
   id: number;
@@ -97,9 +98,9 @@ export function DonateForm({
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
           <Label>مقصد حمایت</Label>
-          <span className="shrink-0 rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
+          <Tag className="border-orange-400/30 bg-orange-500/10 text-orange-200">
             USDT · BEP20
-          </span>
+          </Tag>
         </div>
         <div className="flex flex-col gap-3">
           {destinations.map((dest) => {
@@ -143,13 +144,15 @@ export function DonateForm({
                       <span className="font-medium text-white">{dest.title}</span>
                       <span
                         className={cn(
-                          "rounded-full border px-2 py-0.5 text-[11px]",
+                          "inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-medium leading-none",
                           isGeneral
                             ? "border-sky-400/25 bg-sky-500/10 text-sky-200"
                             : "border-orange-400/25 bg-orange-500/10 text-orange-200",
                         )}
                       >
-                        {isGeneral ? "عمومی" : "کمپین"}
+                        <span className="leading-none translate-y-[0.5px]">
+                          {isGeneral ? "عمومی" : "کمپین"}
+                        </span>
                       </span>
                     </div>
                     <p className="text-xs leading-6 text-slate-400">
@@ -167,7 +170,7 @@ export function DonateForm({
 
       <div className="flex flex-col gap-2">
         <Label>مبلغ</Label>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {PRESETS.map((value) => (
             <button
               key={value}
@@ -177,26 +180,28 @@ export function DonateForm({
                 setAmount(String(value));
               }}
               className={cn(
-                "h-11 rounded-full border text-sm transition",
+                "inline-flex h-11 items-center justify-center rounded-full border text-sm leading-none transition",
                 !customMode && Number(amount) === value
                   ? "border-orange-400 bg-orange-500/15 text-orange-200 shadow-[0_0_24px_rgba(249,115,22,0.25)]"
                   : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
               )}
             >
-              {value} USDT
+              <span className="leading-none translate-y-[0.5px]">
+                {value} USDT
+              </span>
             </button>
           ))}
           <button
             type="button"
             onClick={() => setCustomMode(true)}
             className={cn(
-              "h-11 rounded-full border text-sm transition",
+              "inline-flex h-11 items-center justify-center rounded-full border text-sm leading-none transition",
               customMode
                 ? "border-orange-400 bg-orange-500/15 text-orange-200"
                 : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
             )}
           >
-            سایر
+            <span className="leading-none">سایر</span>
           </button>
         </div>
       </div>
