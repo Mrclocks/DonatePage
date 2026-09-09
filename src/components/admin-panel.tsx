@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   ListOrdered,
+  Pencil,
   RefreshCw,
   Send,
   Target,
+  Trash2,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { GlassCard } from "@/components/glass-card";
@@ -46,6 +48,7 @@ export function AdminPanel() {
   const [title, setTitle] = useState("");
   const [goalAmount, setGoalAmount] = useState("1000");
   const [activate, setActivate] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -71,15 +74,19 @@ export function AdminPanel() {
   function createTarget() {
     setMessage(null);
     startTransition(async () => {
-      const response = await fetch("/api/admin/targets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          goalAmount: Number(goalAmount),
-          activate,
-        }),
-      });
+      const isEdit = editingId !== null;
+      const response = await fetch(
+        isEdit ? `/api/admin/targets/${editingId}` : "/api/admin/targets",
+        {
+          method: isEdit ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            goalAmount: Number(goalAmount),
+            activate,
+          }),
+        },
+      );
       const data = await response.json();
       if (!response.ok) {
         setMessage(data.error || "خطا در ذخیره تارگت");
@@ -87,7 +94,43 @@ export function AdminPanel() {
       }
       setTitle("");
       setGoalAmount("1000");
-      setMessage("تارگت ذخیره شد");
+      setActivate(true);
+      setEditingId(null);
+      setMessage(isEdit ? "تارگت ویرایش شد" : "تارگت ذخیره شد");
+      await load();
+    });
+  }
+
+  function startEdit(target: TargetRow) {
+    setEditingId(target.id);
+    setTitle(target.title);
+    setGoalAmount(String(target.goalAmount));
+    setActivate(target.status === "active");
+    setMessage(`در حال ویرایش: ${target.title}`);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTitle("");
+    setGoalAmount("1000");
+    setActivate(true);
+    setMessage(null);
+  }
+
+  function removeTarget(id: number, name: string) {
+    if (!window.confirm(`حذف هدف «${name}» و دونیت‌هایش؟`)) return;
+    setMessage(null);
+    startTransition(async () => {
+      const response = await fetch(`/api/admin/targets/${id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(data.error || "حذف ناموفق");
+        return;
+      }
+      if (editingId === id) cancelEdit();
+      setMessage("تارگت حذف شد");
       await load();
     });
   }
@@ -149,7 +192,9 @@ export function AdminPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-orange-300" />
-            <h1 className="text-xl font-semibold text-white">ایجاد هدف جدید</h1>
+            <h1 className="text-xl font-semibold text-white">
+              {editingId ? "ویرایش هدف" : "ایجاد هدف جدید"}
+            </h1>
           </div>
           <span className="rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200">
             USDT · BEP20
@@ -181,14 +226,21 @@ export function AdminPanel() {
             <Switch checked={activate} onCheckedChange={setActivate} />
             <span className="text-sm text-slate-200">فعال</span>
           </label>
-          <Button
-            className="gap-2 rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
-            disabled={pending}
-            onClick={createTarget}
-          >
-            <Check className="h-4 w-4" />
-            ذخیره هدف
-          </Button>
+          <div className="flex gap-3">
+            {editingId ? (
+              <Button variant="outline" disabled={pending} onClick={cancelEdit}>
+                انصراف
+              </Button>
+            ) : null}
+            <Button
+              className="gap-2 rounded-xl shadow-[0_12px_40px_rgba(249,115,22,0.3)]"
+              disabled={pending}
+              onClick={createTarget}
+            >
+              <Check className="h-4 w-4" />
+              {editingId ? "ذخیره تغییرات" : "ذخیره هدف"}
+            </Button>
+          </div>
         </div>
       </GlassCard>
 
@@ -209,12 +261,13 @@ export function AdminPanel() {
                 <th className="px-3 text-right font-medium">پیشرفت</th>
                 <th className="px-3 text-right font-medium">وضعیت</th>
                 <th className="px-3 text-right font-medium">تاریخ</th>
+                <th className="px-3 text-right font-medium">عملیات</th>
               </tr>
             </thead>
             <tbody>
               {targets.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-slate-400">
+                  <td colSpan={7} className="px-3 py-6 text-slate-400">
                     هنوز تارگتی نیست
                   </td>
                 </tr>
@@ -263,8 +316,34 @@ export function AdminPanel() {
                           {target.status === "active" ? "فعال" : "تکمیل شده"}
                         </span>
                       </td>
-                      <td className="rounded-l-xl px-3 py-4 text-slate-400">
+                      <td className="px-3 py-4 text-slate-400">
                         {new Date(target.createdAt).toLocaleDateString("fa-IR")}
+                      </td>
+                      <td className="rounded-l-xl px-3 py-4">
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            disabled={pending}
+                            onClick={() => startEdit(target)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            ویرایش
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="gap-1"
+                            disabled={pending}
+                            onClick={() =>
+                              removeTarget(target.id, target.title)
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            حذف
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
