@@ -44,27 +44,27 @@ export default async function HomePage({
   }
 
   return (
-    <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-16">
+    <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-14">
       <header className="flex items-center justify-start">
         <BrandMark large />
       </header>
 
-      <div className="mt-16 grid gap-10 md:mt-20 lg:grid-cols-2 lg:gap-12">
+      <div className="mt-14 grid gap-8 md:mt-16 lg:grid-cols-2 lg:gap-8">
         <GlassCard
-          className="min-h-[320px] space-y-6 lg:row-span-1"
+          className="lg:row-span-1"
           title="کمپین‌های فعال"
-          icon={<Sparkles className="h-7 w-7" strokeWidth={2.25} />}
+          icon={<Sparkles className="h-6 w-6" strokeWidth={2.25} />}
         >
           {campaigns.length === 0 ? (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <p className="text-sm leading-7 text-slate-400">
                 فعلاً کمپین هدف‌مندی باز نیست. می‌توانید از بخش حمایت، به‌صورت عمومی
                 دونیت کنید.
               </p>
               {general ? (
-                <div className="flex items-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3.5">
-                  <HeartHandshake className="h-5 w-5 text-sky-300" />
-                  <div>
+                <div className="flex items-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-4">
+                  <HeartHandshake className="h-5 w-5 shrink-0 text-sky-300" />
+                  <div className="flex flex-col gap-1">
                     <p className="text-sm font-medium text-white">{general.title}</p>
                     <p className="text-xs text-slate-400">
                       جمع حمایت عمومی: {formatMoney(general.raisedAmount)}
@@ -74,7 +74,7 @@ export default async function HomePage({
               ) : null}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-3">
               {campaigns.map((campaign) => {
                 const percent = clampPercent(
                   (Number(campaign.raisedAmount) /
@@ -84,10 +84,10 @@ export default async function HomePage({
                 return (
                   <div
                     key={campaign.id}
-                    className="space-y-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-4"
+                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-4"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
+                      <div className="flex flex-col gap-1">
                         <div className="inline-flex items-center gap-2 text-orange-300">
                           <Target className="h-4 w-4" />
                           <span className="text-xs">کمپین</span>
@@ -115,9 +115,8 @@ export default async function HomePage({
         </GlassCard>
 
         <GlassCard
-          className="min-h-[320px]"
           title="حمایت کنید"
-          icon={<HeartHandshake className="h-7 w-7" strokeWidth={2.25} />}
+          icon={<HeartHandshake className="h-6 w-6" strokeWidth={2.25} />}
         >
           <DonateForm
             destinations={destinations.map((d) => ({
@@ -133,18 +132,17 @@ export default async function HomePage({
         </GlassCard>
 
         <GlassCard
-          className="min-h-[280px]"
           title="بیشترین دونیت‌کنندگان"
-          icon={<Users className="h-7 w-7" strokeWidth={2.25} />}
+          icon={<Users className="h-6 w-6" strokeWidth={2.25} />}
         >
-          <div className="space-y-4">
+          <div className="flex flex-col gap-3">
             {topDonors.length === 0 ? (
               <p className="text-sm text-slate-400">هنوز دونیتی ثبت نشده</p>
             ) : (
               topDonors.map((donor, index) => (
                 <div
                   key={`${donor.donorName}-${index}`}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-3.5"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-4"
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -167,11 +165,10 @@ export default async function HomePage({
         </GlassCard>
 
         <GlassCard
-          className="min-h-[280px]"
           title="سابقه اهداف"
-          icon={<History className="h-7 w-7" strokeWidth={2.25} />}
+          icon={<History className="h-6 w-6" strokeWidth={2.25} />}
         >
-          <div className="space-y-4">
+          <div className="flex flex-col gap-3">
             {history.length === 0 ? (
               <p className="text-sm text-slate-400">تاریخچه‌ای نیست</p>
             ) : (
@@ -183,12 +180,12 @@ export default async function HomePage({
                 return (
                   <div
                     key={item.id}
-                    className="space-y-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-4"
+                    className="flex flex-col gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-4"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="flex flex-col gap-1">
                         <p className="font-medium text-slate-100">{item.title}</p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="text-xs text-slate-500">
                           {item.completedAt
                             ? new Date(item.completedAt).toLocaleDateString(
                                 "fa-IR",
