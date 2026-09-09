@@ -10,13 +10,16 @@ cd DonatePage
 bash install.sh
 ```
 
-Menu opens. Choose `1` to install.
+Choose `1`.
 
 Ports: **80**, **443**
 
-## Later
+## If build fails on Oracle Cloud
 
 ```bash
 cd DonatePage
+git pull
 bash install.sh
 ```
+
+Choose `7` (update) or `1` again. Installer sets Docker DNS automatically.
