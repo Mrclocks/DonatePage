@@ -255,7 +255,7 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 md:px-8 md:py-14">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 md:px-8 md:py-12">
       <div className="flex items-center justify-between gap-4">
         <BrandMark href="/" large />
         <Button variant="outline" onClick={logout} disabled={pending}>
@@ -268,66 +268,66 @@ export function AdminPanel() {
       ) : null}
 
       <GlassCard
-        className="flex flex-col gap-6"
         title={editingId ? "ویرایش هدف" : "ایجاد هدف جدید"}
-        icon={<Target className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<Target className="h-5 w-5" strokeWidth={2.25} />}
       >
-        <AlertBox variant="info" title="چند کمپین همزمان">
-          می‌توانید چند کمپین را هم‌زمان فعال کنید. «حمایت عمومی» همیشه باز است و قابل حذف نیست.
-        </AlertBox>
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <Tag className="border-orange-400/30 bg-orange-500/10 text-orange-200">
-            USDT · BEP20
-          </Tag>
-        </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="title">عنوان هدف</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="مثال: توسعه پلتفرم MrClock"
-            />
+        <div className="flex flex-col gap-6">
+          <AlertBox variant="info" title="چند کمپین همزمان">
+            می‌توانید چند کمپین را هم‌زمان فعال کنید. «حمایت عمومی» همیشه باز است و قابل حذف نیست.
+          </AlertBox>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Tag className="border-orange-400/30 bg-orange-500/10 text-orange-200">
+              USDT · BEP20
+            </Tag>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="goal">مبلغ هدف (USDT)</Label>
-            <Input
-              id="goal"
-              value={goalAmount}
-              onChange={(e) => setGoalAmount(e.target.value)}
-              inputMode="decimal"
-              placeholder="0 USDT"
-            />
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="title">عنوان هدف</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="مثال: توسعه پلتفرم MrClock"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="goal">مبلغ هدف (USDT)</Label>
+              <Input
+                id="goal"
+                value={goalAmount}
+                onChange={(e) => setGoalAmount(e.target.value)}
+                inputMode="decimal"
+                placeholder="0 USDT"
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <label className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-3">
-            <Switch checked={activate} onCheckedChange={setActivate} />
-            <span className="text-sm text-slate-200">فعال</span>
-          </label>
-          <div className="flex gap-3">
-            {editingId ? (
-              <Button variant="outline" disabled={pending} onClick={cancelEdit}>
-                انصراف
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <label className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-3">
+              <Switch checked={activate} onCheckedChange={setActivate} />
+              <span className="text-sm text-slate-200">فعال</span>
+            </label>
+            <div className="flex gap-3">
+              {editingId ? (
+                <Button variant="outline" disabled={pending} onClick={cancelEdit}>
+                  انصراف
+                </Button>
+              ) : null}
+              <Button
+                className="gap-2"
+                disabled={pending}
+                onClick={createTarget}
+              >
+                <Check className="h-4 w-4" />
+                {editingId ? "ذخیره تغییرات" : "ذخیره هدف"}
               </Button>
-            ) : null}
-            <Button
-              className="gap-2"
-              disabled={pending}
-              onClick={createTarget}
-            >
-              <Check className="h-4 w-4" />
-              {editingId ? "ذخیره تغییرات" : "ذخیره هدف"}
-            </Button>
+            </div>
           </div>
         </div>
       </GlassCard>
 
       <GlassCard
-        className="flex flex-col gap-6"
         title="اهداف قبلی و جاری"
-        icon={<ListOrdered className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<ListOrdered className="h-5 w-5" strokeWidth={2.25} />}
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-separate border-spacing-y-3 text-sm">
@@ -455,158 +455,160 @@ export function AdminPanel() {
       </GlassCard>
 
       <GlassCard
-        className="flex flex-col gap-6"
         title="امنیت و مسیر ورود"
-        icon={<KeyRound className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<KeyRound className="h-5 w-5" strokeWidth={2.25} />}
       >
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="current-pass">رمز فعلی</Label>
-            <Input
-              id="current-pass"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="new-pass">رمز جدید</Label>
-            <Input
-              id="new-pass"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="confirm-pass">تکرار رمز جدید</Label>
-            <Input
-              id="confirm-pass"
-              type="password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </div>
-        </div>
-        <Button disabled={pending} onClick={changePassword}>
-          تغییر رمز ادمین
-        </Button>
-
-        <div className="border-t border-white/10 pt-8">
-          <div className="mb-4 flex items-center gap-2 text-sm text-slate-400">
-            <Link2 className="h-4 w-4 text-orange-300" />
-            مسیر فعلی لاگین:{" "}
-            <span className="font-medium text-orange-200">/{adminPath}</span>
-          </div>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="w-full space-y-2.5 sm:max-w-sm">
-              <Label htmlFor="admin-path">مسیر جدید (بدون /)</Label>
+        <div className="flex flex-col gap-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="current-pass">رمز فعلی</Label>
               <Input
-                id="admin-path"
-                value={pathDraft}
-                onChange={(e) => setPathDraft(e.target.value)}
-                placeholder="admin"
-                dir="ltr"
-                className="text-left"
+                id="current-pass"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
               />
             </div>
-            <Button
-              variant="outline"
-              disabled={pending}
-              onClick={changeAdminPath}
-            >
-              ذخیره مسیر
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="new-pass">رمز جدید</Label>
+              <Input
+                id="new-pass"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="confirm-pass">تکرار رمز جدید</Label>
+              <Input
+                id="confirm-pass"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
           </div>
-          <p className="mt-3 text-xs leading-6 text-slate-500">
-            بعد از تغییر، آدرس ورود می‌شود{" "}
-            <span className="text-slate-300" dir="ltr">
-              /{pathDraft || "…"}/login
-            </span>
-            . برای اعمال کامل روی سرور، یک‌بار ریستارت کنید.
-          </p>
+          <Button disabled={pending} onClick={changePassword}>
+            تغییر رمز ادمین
+          </Button>
+
+          <div className="border-t border-white/10 pt-6">
+            <div className="mb-4 flex items-center gap-2 text-sm text-slate-400">
+              <Link2 className="h-4 w-4 text-orange-300" />
+              مسیر فعلی لاگین:{" "}
+              <span className="font-medium text-orange-200">/{adminPath}</span>
+            </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex w-full flex-col gap-2 sm:max-w-sm">
+                <Label htmlFor="admin-path">مسیر جدید (بدون /)</Label>
+                <Input
+                  id="admin-path"
+                  value={pathDraft}
+                  onChange={(e) => setPathDraft(e.target.value)}
+                  placeholder="admin"
+                  dir="ltr"
+                  className="text-left"
+                />
+              </div>
+              <Button
+                variant="outline"
+                disabled={pending}
+                onClick={changeAdminPath}
+              >
+                ذخیره مسیر
+              </Button>
+            </div>
+            <p className="mt-3 text-xs leading-6 text-slate-500">
+              بعد از تغییر، آدرس ورود می‌شود{" "}
+              <span className="text-slate-300" dir="ltr">
+                /{pathDraft || "…"}/login
+              </span>
+              . برای اعمال کامل روی سرور، یک‌بار ریستارت کنید.
+            </p>
+          </div>
         </div>
       </GlassCard>
 
       <GlassCard
-        className="flex flex-col gap-6"
         title="تنظیمات تلگرام"
-        icon={<Send className="h-6 w-6" strokeWidth={2.25} />}
+        icon={<Send className="h-5 w-5" strokeWidth={2.25} />}
       >
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
-              settings.telegramEnabled && settings.hasTelegramToken
-                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                : "border-white/10 bg-white/5 text-slate-400"
-            }`}
-          >
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <span
-              className={`h-2 w-2 rounded-full ${
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
                 settings.telegramEnabled && settings.hasTelegramToken
-                  ? "bg-emerald-400"
-                  : "bg-slate-500"
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                  : "border-white/10 bg-white/5 text-slate-400"
               }`}
-            />
-            {settings.telegramEnabled && settings.hasTelegramToken
-              ? "اتصال"
-              : "غیرفعال"}
-          </span>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="token">Bot Token</Label>
-            <Input
-              id="token"
-              value={settings.telegramBotToken}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, telegramBotToken: e.target.value }))
-              }
-              placeholder="123456:ABC..."
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="chat">Chat ID</Label>
-            <Input
-              id="chat"
-              value={settings.telegramChatId}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, telegramChatId: e.target.value }))
-              }
-              placeholder="-100..."
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <label className="inline-flex items-center gap-3">
-            <Switch
-              checked={settings.telegramEnabled}
-              onCheckedChange={(checked) =>
-                setSettings((s) => ({ ...s, telegramEnabled: checked }))
-              }
-            />
-            <span className="text-sm text-slate-300">
-              فعال کردن اطلاع‌رسانی‌ها
-            </span>
-          </label>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="gap-2"
-              disabled={pending}
-              onClick={testTelegram}
             >
-              <RefreshCw className="h-4 w-4" />
-              تست اتصال
-            </Button>
-            <Button disabled={pending} onClick={saveSettings}>
-              ذخیره تنظیمات
-            </Button>
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  settings.telegramEnabled && settings.hasTelegramToken
+                    ? "bg-emerald-400"
+                    : "bg-slate-500"
+                }`}
+              />
+              {settings.telegramEnabled && settings.hasTelegramToken
+                ? "اتصال"
+                : "غیرفعال"}
+            </span>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="token">Bot Token</Label>
+              <Input
+                id="token"
+                value={settings.telegramBotToken}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, telegramBotToken: e.target.value }))
+                }
+                placeholder="123456:ABC..."
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="chat">Chat ID</Label>
+              <Input
+                id="chat"
+                value={settings.telegramChatId}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, telegramChatId: e.target.value }))
+                }
+                placeholder="-100..."
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <label className="inline-flex items-center gap-3">
+              <Switch
+                checked={settings.telegramEnabled}
+                onCheckedChange={(checked) =>
+                  setSettings((s) => ({ ...s, telegramEnabled: checked }))
+                }
+              />
+              <span className="text-sm text-slate-300">
+                فعال کردن اطلاع‌رسانی‌ها
+              </span>
+            </label>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled={pending}
+                onClick={testTelegram}
+              >
+                <RefreshCw className="h-4 w-4" />
+                تست اتصال
+              </Button>
+              <Button disabled={pending} onClick={saveSettings}>
+                ذخیره تنظیمات
+              </Button>
+            </div>
           </div>
         </div>
       </GlassCard>

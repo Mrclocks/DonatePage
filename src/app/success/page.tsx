@@ -12,7 +12,7 @@ export default async function SuccessPage({
   const params = await searchParams;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-10 px-4 py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-8 px-4 py-10">
       <BrandMark />
       <GlassCard className="flex flex-col gap-6 text-center">
         <AlertBox variant="success" title="ممنون از حمایتت">

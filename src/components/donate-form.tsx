@@ -118,10 +118,10 @@ export function DonateForm({
                 type="button"
                 onClick={() => setTargetId(dest.id)}
                 className={cn(
-                  "rounded-2xl border px-4 py-4 text-right transition",
+                  "rounded-2xl border px-4 py-3.5 text-right transition",
                   active
                     ? "border-orange-400/50 bg-orange-500/15 shadow-[0_0_28px_rgba(249,115,22,0.18)]"
-                    : "border-white/12 bg-white/5 hover:bg-white/8",
+                    : "border-white/12 bg-white/[0.04] hover:bg-white/[0.06]",
                 )}
               >
                 <div className="flex items-start gap-3">

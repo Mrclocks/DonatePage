@@ -44,16 +44,16 @@ export default async function HomePage({
   }
 
   return (
-    <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-14">
+    <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-12">
       <header className="flex items-center justify-start">
-        <BrandMark large caption="حمایت شفاف با USDT روی BEP20" />
+        <BrandMark large />
       </header>
 
-      <div className="mt-14 grid gap-8 md:mt-16 lg:grid-cols-2 lg:gap-8">
+      <div className="mt-10 grid gap-6 md:mt-12 lg:grid-cols-2 lg:gap-8">
         <GlassCard
           className="lg:row-span-1"
           title="کمپین‌های فعال"
-          icon={<Sparkles className="h-6 w-6" strokeWidth={2.25} />}
+          icon={<Sparkles className="h-5 w-5" strokeWidth={2.25} />}
         >
           {campaigns.length === 0 ? (
             <div className="flex flex-col gap-4">
@@ -62,7 +62,7 @@ export default async function HomePage({
                 دونیت کنید.
               </p>
               {general ? (
-                <div className="flex items-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-4">
+                <div className="flex items-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3.5">
                   <HeartHandshake className="h-5 w-5 shrink-0 text-sky-300" />
                   <div className="flex flex-col gap-1">
                     <p className="text-sm font-medium text-white">{general.title}</p>
@@ -84,18 +84,20 @@ export default async function HomePage({
                 return (
                   <div
                     key={campaign.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-4"
+                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/15 px-4 py-3.5"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5">
                         <div className="inline-flex items-center gap-2 text-orange-300">
                           <Target className="h-4 w-4" />
                           <span className="text-xs">کمپین</span>
                         </div>
-                        <p className="font-medium text-white">{campaign.title}</p>
+                        <p className="font-medium leading-snug text-white">
+                          {campaign.title}
+                        </p>
                       </div>
                       <span className="inline-flex items-center justify-center rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1.5 text-xs font-medium leading-none text-orange-200">
-                        <span className="leading-none translate-y-[0.5px]">
+                        <span className="translate-y-[0.5px] leading-none">
                           {Math.round(percent)}%
                         </span>
                       </span>
@@ -118,7 +120,7 @@ export default async function HomePage({
 
         <GlassCard
           title="حمایت کنید"
-          icon={<HeartHandshake className="h-6 w-6" strokeWidth={2.25} />}
+          icon={<HeartHandshake className="h-5 w-5" strokeWidth={2.25} />}
         >
           <DonateForm
             destinations={destinations.map((d) => ({
@@ -135,7 +137,7 @@ export default async function HomePage({
 
         <GlassCard
           title="بیشترین دونیت‌کنندگان"
-          icon={<Users className="h-6 w-6" strokeWidth={2.25} />}
+          icon={<Users className="h-5 w-5" strokeWidth={2.25} />}
         >
           <div className="flex flex-col gap-3">
             {topDonors.length === 0 ? (
@@ -144,7 +146,7 @@ export default async function HomePage({
               topDonors.map((donor, index) => (
                 <div
                   key={`${donor.donorName}-${index}`}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-4"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3.5"
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -168,7 +170,7 @@ export default async function HomePage({
 
         <GlassCard
           title="سابقه اهداف"
-          icon={<History className="h-6 w-6" strokeWidth={2.25} />}
+          icon={<History className="h-5 w-5" strokeWidth={2.25} />}
         >
           <div className="flex flex-col gap-3">
             {history.length === 0 ? (
@@ -182,11 +184,13 @@ export default async function HomePage({
                 return (
                   <div
                     key={item.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-4"
+                    className="flex flex-col gap-3 rounded-2xl border border-white/8 bg-black/15 px-4 py-3.5"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex flex-col gap-1">
-                        <p className="font-medium text-slate-100">{item.title}</p>
+                      <div className="flex flex-col gap-1.5">
+                        <p className="font-medium leading-snug text-slate-100">
+                          {item.title}
+                        </p>
                         <p className="text-xs text-slate-500">
                           {item.completedAt
                             ? new Date(item.completedAt).toLocaleDateString(
