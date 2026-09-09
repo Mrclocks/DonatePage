@@ -14,9 +14,9 @@ export function GlassCard({
   return (
     <section
       className={cn(
-        "rounded-[28px] border border-white/30 bg-white/[0.14] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-[40px] md:p-10",
-        "ring-1 ring-inset ring-white/20",
-        "supports-[backdrop-filter]:bg-white/[0.1]",
+        "rounded-[28px] border border-white/25 bg-white/[0.06] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-[48px] md:p-10",
+        "ring-1 ring-inset ring-white/15",
+        "supports-[backdrop-filter]:bg-white/[0.04]",
         className,
       )}
     >
