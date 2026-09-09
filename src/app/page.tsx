@@ -15,7 +15,22 @@ const RANK_STYLES = [
 ];
 
 export default function HomePage() {
-  const { activeTarget, topDonors, history } = getPublicPageData();
+  type PublicData = ReturnType<typeof getPublicPageData>;
+  let activeTarget: PublicData["activeTarget"] | null = null;
+  let topDonors: PublicData["topDonors"] = [];
+  let history: PublicData["history"] = [];
+  let bootError: string | null = null;
+
+  try {
+    const data = getPublicPageData();
+    activeTarget = data.activeTarget;
+    topDonors = data.topDonors;
+    history = data.history;
+  } catch (error) {
+    bootError =
+      error instanceof Error ? error.message : "Database unavailable";
+  }
+
   const percent = activeTarget
     ? clampPercent(
         (Number(activeTarget.raisedAmount) / Number(activeTarget.goalAmount)) *
@@ -34,6 +49,14 @@ export default function HomePage() {
           مدیریت
         </a>
       </header>
+
+      {bootError ? (
+        <GlassCard>
+          <p className="text-sm text-red-300">
+            سرویس دیتابیس در دسترس نیست: {bootError}
+          </p>
+        </GlassCard>
+      ) : null}
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
         <GlassCard className="min-h-[320px] space-y-8">

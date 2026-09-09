@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
-  serverExternalPackages: ["better-sqlite3"],
+  // Full next start in Docker is more reliable with native modules (better-sqlite3).
   poweredByHeader: false,
 };
 
