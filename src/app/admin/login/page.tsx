@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
 import { GlassCard } from "@/components/glass-card";
+import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

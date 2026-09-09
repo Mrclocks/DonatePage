@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createOrderId } from "@/lib/auth";
 import {
   createPendingDonation,
-  getActiveTarget,
+  getDonateTarget,
 } from "@/lib/donations";
 import { assertLiveWebhookConfigured, createOnePayment } from "@/lib/onepayment";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 const schema = z.object({
   amount: z.number().positive().max(1_000_000),
   donorName: z.string().trim().max(80).optional().nullable(),
+  targetId: z.number().int().positive().optional().nullable(),
 });
 
 function appUrl(request: Request) {
@@ -33,13 +34,13 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    return NextResponse.json({ error: "اطلاعات نامعتبر است" }, { status: 400 });
   }
 
-  const target = getActiveTarget();
+  const target = getDonateTarget(parsed.data.targetId);
   if (!target) {
     return NextResponse.json(
-      { error: "No active donation target" },
+      { error: "مقصد حمایت معتبر نیست یا فعال نیست" },
       { status: 400 },
     );
   }
@@ -72,13 +73,15 @@ export async function POST(request: Request) {
     return NextResponse.json({
       checkoutUrl: payment.checkoutUrl,
       orderId,
+      targetId: target.id,
+      targetTitle: target.title,
     });
   } catch (error) {
     console.error("donate_create_failed");
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Payment create failed",
+          error instanceof Error ? error.message : "ساخت پرداخت ناموفق بود",
       },
       { status: 502 },
     );

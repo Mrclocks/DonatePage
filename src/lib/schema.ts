@@ -13,6 +13,7 @@ export const targets = sqliteTable("targets", {
   raisedAmount: real("raised_amount").notNull().default(0),
   currency: text("currency").notNull().default("USDT"),
   status: text("status").notNull().default("active"), // active | completed
+  kind: text("kind").notNull().default("campaign"), // general | campaign
   createdAt: text("created_at").notNull(),
   completedAt: text("completed_at"),
 });

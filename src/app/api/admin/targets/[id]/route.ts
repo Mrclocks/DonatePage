@@ -49,9 +49,18 @@ export async function DELETE(_request: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const ok = deleteTarget(id);
-  if (!ok) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const ok = deleteTarget(id);
+    if (!ok) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "حذف ناموفق",
+      },
+      { status: 400 },
+    );
   }
   return NextResponse.json({ ok: true });
 }

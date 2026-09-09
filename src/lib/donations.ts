@@ -1,16 +1,46 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { getDb, nowIso } from "@/lib/db";
 import { adminLogs, donations, targets } from "@/lib/schema";
 import { donationTelegramText, sendTelegramMessage } from "@/lib/telegram";
 
-export function getActiveTarget() {
+export type TargetKind = "general" | "campaign";
+
+export function getGeneralTarget() {
   const db = getDb();
   return db
     .select()
     .from(targets)
-    .where(eq(targets.status, "active"))
-    .orderBy(desc(targets.id))
+    .where(eq(targets.kind, "general"))
     .get();
+}
+
+export function getActiveCampaigns() {
+  const db = getDb();
+  return db
+    .select()
+    .from(targets)
+    .where(and(eq(targets.status, "active"), eq(targets.kind, "campaign")))
+    .orderBy(desc(targets.id))
+    .all();
+}
+
+/** @deprecated prefer getActiveCampaigns / getDonateTarget */
+export function getActiveTarget() {
+  const campaigns = getActiveCampaigns();
+  if (campaigns[0]) return campaigns[0];
+  return getGeneralTarget();
+}
+
+export function getDonateTarget(targetId?: number | null) {
+  const db = getDb();
+  if (targetId != null) {
+    const row = db.select().from(targets).where(eq(targets.id, targetId)).get();
+    if (!row) return null;
+    if (row.kind === "general") return row;
+    if (row.status === "active") return row;
+    return null;
+  }
+  return getGeneralTarget() || getActiveCampaigns()[0] || null;
 }
 
 export function listTargets() {
@@ -23,7 +53,7 @@ export function listCompletedTargets() {
   return db
     .select()
     .from(targets)
-    .where(eq(targets.status, "completed"))
+    .where(and(eq(targets.status, "completed"), ne(targets.kind, "general")))
     .orderBy(desc(targets.completedAt), desc(targets.id))
     .all();
 }
@@ -56,19 +86,7 @@ export function createTarget(input: {
   const db = getDb();
   const createdAt = nowIso();
 
-  if (input.activate !== false) {
-    const active = getActiveTarget();
-    if (active) {
-      db.update(targets)
-        .set({
-          status: "completed",
-          completedAt: createdAt,
-        })
-        .where(eq(targets.id, active.id))
-        .run();
-    }
-  }
-
+  // Multiple campaigns can stay active at once. General is never created here.
   const result = db
     .insert(targets)
     .values({
@@ -77,6 +95,7 @@ export function createTarget(input: {
       raisedAmount: 0,
       currency: input.currency || "USDT",
       status: input.activate === false ? "completed" : "active",
+      kind: "campaign",
       createdAt,
       completedAt: input.activate === false ? createdAt : null,
     })
@@ -98,17 +117,21 @@ export function updateTarget(
   const existing = db.select().from(targets).where(eq(targets.id, id)).get();
   if (!existing) return false;
 
-  const now = nowIso();
-  if (input.activate === true && existing.status !== "active") {
-    const active = getActiveTarget();
-    if (active && active.id !== id) {
-      db.update(targets)
-        .set({ status: "completed", completedAt: now })
-        .where(eq(targets.id, active.id))
-        .run();
-    }
+  if (existing.kind === "general") {
+    // General stays open; only title/raised stay editable lightly
+    db.update(targets)
+      .set({
+        title: input.title ?? existing.title,
+        status: "active",
+        completedAt: null,
+      })
+      .where(eq(targets.id, id))
+      .run();
+    logAdmin("update_general_target", String(id));
+    return true;
   }
 
+  const now = nowIso();
   db.update(targets)
     .set({
       title: input.title ?? existing.title,
@@ -137,6 +160,9 @@ export function deleteTarget(id: number) {
   const db = getDb();
   const existing = db.select().from(targets).where(eq(targets.id, id)).get();
   if (!existing) return false;
+  if (existing.kind === "general") {
+    throw new Error("هدف عمومی قابل حذف نیست");
+  }
 
   db.delete(donations).where(eq(donations.targetId, id)).run();
   db.delete(targets).where(eq(targets.id, id)).run();
@@ -196,7 +222,9 @@ export async function markDonationPaid(orderId: string, providerPaymentId?: stri
 
   if (target) {
     const raised = Number(target.raisedAmount || 0) + Number(donation.amount);
-    const shouldComplete = raised >= Number(target.goalAmount);
+    const isGeneral = target.kind === "general" || Number(target.goalAmount) <= 0;
+    const shouldComplete =
+      !isGeneral && raised >= Number(target.goalAmount);
     db.update(targets)
       .set({
         raisedAmount: raised,
@@ -220,10 +248,16 @@ export async function markDonationPaid(orderId: string, providerPaymentId?: stri
 }
 
 export function getPublicPageData() {
-  const activeTarget = getActiveTarget();
+  getDb(); // ensures general target exists
+  const general = getGeneralTarget();
+  const campaigns = getActiveCampaigns();
+  const destinations = [
+    ...(general ? [general] : []),
+    ...campaigns,
+  ];
   const topDonors = getTopDonors(10);
   const history = listCompletedTargets().slice(0, 12);
-  return { activeTarget, topDonors, history };
+  return { general, campaigns, destinations, topDonors, history };
 }
 
 export function logAdmin(action: string, detail?: string) {
