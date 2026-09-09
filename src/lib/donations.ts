@@ -86,6 +86,64 @@ export function createTarget(input: {
   return Number(result.lastInsertRowid);
 }
 
+export function updateTarget(
+  id: number,
+  input: {
+    title?: string;
+    goalAmount?: number;
+    activate?: boolean;
+  },
+) {
+  const db = getDb();
+  const existing = db.select().from(targets).where(eq(targets.id, id)).get();
+  if (!existing) return false;
+
+  const now = nowIso();
+  if (input.activate === true && existing.status !== "active") {
+    const active = getActiveTarget();
+    if (active && active.id !== id) {
+      db.update(targets)
+        .set({ status: "completed", completedAt: now })
+        .where(eq(targets.id, active.id))
+        .run();
+    }
+  }
+
+  db.update(targets)
+    .set({
+      title: input.title ?? existing.title,
+      goalAmount: input.goalAmount ?? existing.goalAmount,
+      status:
+        input.activate === undefined
+          ? existing.status
+          : input.activate
+            ? "active"
+            : "completed",
+      completedAt:
+        input.activate === false
+          ? now
+          : input.activate === true
+            ? null
+            : existing.completedAt,
+    })
+    .where(eq(targets.id, id))
+    .run();
+
+  logAdmin("update_target", String(id));
+  return true;
+}
+
+export function deleteTarget(id: number) {
+  const db = getDb();
+  const existing = db.select().from(targets).where(eq(targets.id, id)).get();
+  if (!existing) return false;
+
+  db.delete(donations).where(eq(donations.targetId, id)).run();
+  db.delete(targets).where(eq(targets.id, id)).run();
+  logAdmin("delete_target", String(id));
+  return true;
+}
+
 export function createPendingDonation(input: {
   targetId: number;
   amount: number;
