@@ -5,25 +5,38 @@ export function BrandMark({
   href = "/",
   className,
   large = false,
+  stacked = false,
 }: {
   href?: string;
   className?: string;
   large?: boolean;
+  /** Vertical logo-above-name layout for centered hero */
+  stacked?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={cn("inline-flex items-center gap-3.5", className)}
+      className={cn(
+        "inline-flex items-center",
+        stacked ? "flex-col gap-4" : "gap-3.5",
+        className,
+      )}
     >
       <span
         className={cn(
           "relative flex items-center justify-center rounded-full border border-orange-400/50 bg-[#0b1730]/70 shadow-[0_0_40px_rgba(249,115,22,0.28)]",
-          large ? "h-14 w-14" : "h-12 w-12",
+          stacked && large
+            ? "h-20 w-20 animate-[brand-pulse_4s_ease-in-out_infinite]"
+            : large
+              ? "h-14 w-14"
+              : "h-12 w-12",
         )}
       >
         <svg
           viewBox="0 0 48 48"
-          className={large ? "h-8 w-8" : "h-7 w-7"}
+          className={
+            stacked && large ? "h-11 w-11" : large ? "h-8 w-8" : "h-7 w-7"
+          }
           aria-hidden="true"
         >
           <circle
@@ -56,7 +69,11 @@ export function BrandMark({
       <span
         className={cn(
           "font-semibold leading-none tracking-[0.02em] text-white",
-          large ? "text-2xl" : "text-xl",
+          stacked && large
+            ? "text-3xl md:text-4xl"
+            : large
+              ? "text-2xl"
+              : "text-xl",
         )}
       >
         MrClock
