@@ -242,7 +242,7 @@ export function DonateForm({
         {selected ? (
           <div
             className={cn(
-              "rounded-2xl border px-4 py-3.5 transition",
+              "rounded-2xl border px-4 py-3.5 text-center transition",
               selected.kind === "general"
                 ? "border-sky-400/20 bg-sky-500/[0.08]"
                 : "border-orange-400/20 bg-orange-500/[0.08]",

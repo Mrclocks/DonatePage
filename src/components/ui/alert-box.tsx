@@ -46,13 +46,13 @@ export function AlertBox({
     <div
       role="status"
       className={cn(
-        "flex gap-3 rounded-2xl border px-4 py-4 text-sm leading-7",
+        "flex items-center justify-center gap-3 rounded-2xl border px-4 py-4 text-center text-sm leading-7",
         cfg.wrap,
         className,
       )}
     >
-      <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", cfg.icon)} strokeWidth={2.25} />
-      <div className="min-w-0 flex flex-col gap-1">
+      <Icon className={cn("h-5 w-5 shrink-0", cfg.icon)} strokeWidth={2.25} />
+      <div className="min-w-0 flex flex-col items-center gap-1 text-center">
         {title ? <p className="font-medium text-white">{title}</p> : null}
         <div className="text-inherit/90">{children}</div>
       </div>
