@@ -62,6 +62,23 @@ export default async function HomePage({
 
       <div className="mt-12 grid gap-6 md:mt-14 lg:grid-cols-2 lg:gap-8">
         <GlassCard
+          title="حمایت کنید"
+          icon={<HeartHandshake className="h-5 w-5" strokeWidth={2.25} />}
+        >
+          <DonateForm
+            destinations={destinations.map((d) => ({
+              id: d.id,
+              title: d.title,
+              kind: d.kind,
+              goalAmount: d.goalAmount,
+              raisedAmount: d.raisedAmount,
+              status: d.status,
+            }))}
+            canceled={canceled}
+          />
+        </GlassCard>
+
+        <GlassCard
           className="lg:row-span-1"
           title="کمپین‌های فعال"
           icon={<Sparkles className="h-5 w-5" strokeWidth={2.25} />}
@@ -127,23 +144,6 @@ export default async function HomePage({
               })}
             </div>
           )}
-        </GlassCard>
-
-        <GlassCard
-          title="حمایت کنید"
-          icon={<HeartHandshake className="h-5 w-5" strokeWidth={2.25} />}
-        >
-          <DonateForm
-            destinations={destinations.map((d) => ({
-              id: d.id,
-              title: d.title,
-              kind: d.kind,
-              goalAmount: d.goalAmount,
-              raisedAmount: d.raisedAmount,
-              status: d.status,
-            }))}
-            canceled={canceled}
-          />
         </GlassCard>
 
         <GlassCard
