@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Pill/tag with optically centered Latin + Persian text */
+/** Pill/tag with vertically centered Latin + Persian text */
 export function Tag({
   children,
   className,
@@ -11,13 +11,11 @@ export function Tag({
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs font-medium leading-none",
+        "inline-flex h-7 items-center justify-center rounded-full border px-3 text-xs font-medium leading-none",
         className,
       )}
     >
-      <span className="inline-flex items-center leading-none translate-y-[0.5px]">
-        {children}
-      </span>
+      {children}
     </span>
   );
 }

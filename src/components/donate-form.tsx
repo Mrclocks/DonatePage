@@ -139,19 +139,12 @@ export function DonateForm({
                 aria-checked={active}
                 onClick={() => setTargetId(dest.id)}
                 className={cn(
-                  "group relative overflow-hidden rounded-2xl border px-4 py-4 text-right transition duration-200",
+                  "group overflow-hidden rounded-2xl border px-4 py-4 text-right transition duration-200",
                   active
                     ? "dest-active border-orange-400/55 bg-gradient-to-l from-orange-500/20 via-orange-500/10 to-transparent shadow-[0_0_32px_rgba(249,115,22,0.2)]"
                     : "border-white/12 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.055]",
                 )}
               >
-                {active ? (
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0 right-0 w-1 bg-gradient-to-b from-orange-300 to-orange-500"
-                  />
-                ) : null}
-
                 <div className="flex items-start gap-3.5">
                   <span
                     className={cn(
@@ -181,15 +174,13 @@ export function DonateForm({
                           </span>
                           <span
                             className={cn(
-                              "inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-medium leading-none",
+                              "inline-flex h-6 items-center justify-center rounded-full border px-2.5 text-[11px] font-medium leading-none",
                               isGeneral
                                 ? "border-sky-400/25 bg-sky-500/10 text-sky-200"
                                 : "border-orange-400/25 bg-orange-500/10 text-orange-200",
                             )}
                           >
-                            <span className="leading-none translate-y-[0.5px]">
-                              {isGeneral ? "عمومی" : "کمپین"}
-                            </span>
+                            {isGeneral ? "عمومی" : "کمپین"}
                           </span>
                         </div>
                         <p className="text-xs leading-6 text-slate-400">
@@ -293,9 +284,7 @@ export function DonateForm({
                   : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
               )}
             >
-              <span className="leading-none translate-y-[0.5px]">
-                {value} USDT
-              </span>
+              {value} USDT
             </button>
           ))}
           <button
@@ -307,9 +296,9 @@ export function DonateForm({
                 ? "border-orange-400 bg-orange-500/15 text-orange-200"
                 : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
             )}
-          >
-            <span className="leading-none">سایر</span>
-          </button>
+            >
+              سایر
+            </button>
         </div>
       </div>
 
