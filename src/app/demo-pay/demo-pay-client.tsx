@@ -61,13 +61,13 @@ export default function DemoPayClient() {
           <p className="text-sm text-orange-300">حالت Demo</p>
           <h1 className="text-2xl font-semibold text-white">پرداخت آزمایشی</h1>
           <p className="text-sm leading-7 text-slate-400">
-            کلید OnePayment تنظیم نشده. این صفحه فقط برای تست محلی است.
+            کلید NOWPayments تنظیم نشده. این صفحه فقط برای تست محلی است.
           </p>
         </div>
         {payload ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
             <p>
-              مبلغ: {payload.amount} USDT (BEP20)
+              مبلغ: {payload.amount} USDT
             </p>
             <p className="mt-2 break-all">Order: {payload.orderId}</p>
           </div>

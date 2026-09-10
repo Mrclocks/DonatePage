@@ -4,8 +4,13 @@ import { createOrderId } from "@/lib/auth";
 import {
   createPendingDonation,
   getDonateTarget,
+  markDonationFailed,
+  updateDonationProvider,
 } from "@/lib/donations";
-import { assertLiveWebhookConfigured, createOnePayment } from "@/lib/onepayment";
+import {
+  assertLiveConfigured,
+  createNowPaymentsInvoice,
+} from "@/lib/nowpayments";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -48,27 +53,30 @@ export async function POST(request: Request) {
   const orderId = createOrderId();
   const base = appUrl(request);
 
+  // Create pending internal order first — never mark paid from client.
+  createPendingDonation({
+    targetId: target.id,
+    amount: parsed.data.amount,
+    currency: "USDT",
+    donorName: parsed.data.donorName,
+    orderId,
+  });
+
   try {
-    assertLiveWebhookConfigured();
-    const payment = await createOnePayment({
+    assertLiveConfigured();
+    const payment = await createNowPaymentsInvoice({
       orderId,
       amount: parsed.data.amount,
       currency: "USDT",
-      chain: "BEP20",
       donorName: parsed.data.donorName,
       successUrl: `${base}/success?order=${orderId}`,
       cancelUrl: `${base}/?canceled=1`,
-      callbackUrl: `${base}/api/webhook/onepayment`,
+      ipnCallbackUrl: `${base}/api/webhook/nowpayments`,
     });
 
-    createPendingDonation({
-      targetId: target.id,
-      amount: parsed.data.amount,
-      currency: "USDT",
-      donorName: parsed.data.donorName,
-      orderId,
-      providerPaymentId: payment.providerPaymentId,
-    });
+    if (payment.providerPaymentId) {
+      updateDonationProvider(orderId, payment.providerPaymentId);
+    }
 
     return NextResponse.json({
       checkoutUrl: payment.checkoutUrl,
@@ -77,12 +85,13 @@ export async function POST(request: Request) {
       targetTitle: target.title,
     });
   } catch (error) {
-    console.error("donate_create_failed");
+    console.error("donate_create_failed", {
+      orderId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    markDonationFailed(orderId);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "ساخت پرداخت ناموفق بود",
-      },
+      { error: "ساخت پرداخت ناموفق بود" },
       { status: 502 },
     );
   }

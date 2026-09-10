@@ -1,6 +1,6 @@
 # MrClock Donate
 
-USDT (BEP20) donation page + admin + Telegram.
+USDT donation page (NOWPayments Hosted Checkout) + admin + Telegram.
 
 ## Install (Ubuntu)
 
@@ -27,3 +27,11 @@ If you still see old `Ubuntu Menu` / `Diagnose 503`, you are on the old script.
 Ports: **80**, **443**
 
 Survives updates: `data/`, `.env`, `Caddyfile.local`, TLS volume
+
+## Payment env
+
+- `APP_URL` — public site URL (success/cancel/IPN callbacks)
+- `NOWPAYMENTS_API_KEY` — server-only API key
+- `NOWPAYMENTS_IPN_SECRET` — IPN HMAC-SHA512 secret
+- `NOWPAYMENTS_API_BASE` — default `https://api.nowpayments.io`
+- `NOWPAYMENTS_ALLOW_DEMO` — must be `true` to allow demo checkout in production (not recommended)

@@ -43,7 +43,7 @@ export function donationTelegramText(input: {
   return [
     "دونیت جدید — MrClock",
     `نام: ${name}`,
-    `مبلغ: ${input.amount} USDT (BEP20)`,
+    `مبلغ: ${input.amount} USDT`,
     `تارگت: ${input.targetTitle}`,
   ].join("\n");
 }

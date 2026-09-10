@@ -193,7 +193,125 @@ export function createPendingDonation(input: {
     .run();
 }
 
-export async function markDonationPaid(orderId: string, providerPaymentId?: string) {
+export function getDonationByOrderId(orderId: string) {
+  const db = getDb();
+  return db
+    .select()
+    .from(donations)
+    .where(eq(donations.orderId, orderId))
+    .get();
+}
+
+export function updateDonationProvider(
+  orderId: string,
+  providerPaymentId: string,
+) {
+  const db = getDb();
+  db.update(donations)
+    .set({ providerPaymentId })
+    .where(and(eq(donations.orderId, orderId), eq(donations.status, "pending")))
+    .run();
+}
+
+/**
+ * Atomic pending → paid. Increments target raisedAmount only when this
+ * transition actually changed one donation row (idempotent under concurrent IPNs).
+ */
+export async function markDonationPaid(
+  orderId: string,
+  providerPaymentId?: string,
+) {
+  const db = getDb();
+
+  const outcome = db.transaction((tx) => {
+    const donation = tx
+      .select()
+      .from(donations)
+      .where(eq(donations.orderId, orderId))
+      .get();
+
+    if (!donation) {
+      return { kind: "not_found" as const };
+    }
+    if (donation.status === "paid") {
+      return { kind: "already" as const };
+    }
+    if (donation.status !== "pending") {
+      return { kind: "not_pending" as const };
+    }
+
+    const paidAt = nowIso();
+    const updated = tx
+      .update(donations)
+      .set({
+        status: "paid",
+        paidAt,
+        providerPaymentId: providerPaymentId || donation.providerPaymentId,
+      })
+      .where(
+        and(eq(donations.id, donation.id), eq(donations.status, "pending")),
+      )
+      .run();
+
+    if (!updated.changes) {
+      return { kind: "already" as const };
+    }
+
+    const target = tx
+      .select()
+      .from(targets)
+      .where(eq(targets.id, donation.targetId))
+      .get();
+
+    if (target) {
+      const raised = Number(target.raisedAmount || 0) + Number(donation.amount);
+      const isGeneral =
+        target.kind === "general" || Number(target.goalAmount) <= 0;
+      const shouldComplete = !isGeneral && raised >= Number(target.goalAmount);
+      tx.update(targets)
+        .set({
+          raisedAmount: raised,
+          status: shouldComplete ? "completed" : target.status,
+          completedAt: shouldComplete ? paidAt : target.completedAt,
+        })
+        .where(eq(targets.id, target.id))
+        .run();
+    }
+
+    return {
+      kind: "paid" as const,
+      donation,
+      targetTitle: target?.title ?? "",
+    };
+  });
+
+  if (outcome.kind === "not_found") {
+    return { ok: false as const, reason: "not_found" as const };
+  }
+  if (outcome.kind === "not_pending") {
+    return { ok: false as const, reason: "not_pending" as const };
+  }
+  if (outcome.kind === "already") {
+    return { ok: true as const, already: true as const };
+  }
+
+  await sendTelegramMessage(
+    donationTelegramText({
+      donorName: outcome.donation.donorName,
+      amount: outcome.donation.amount,
+      currency: outcome.donation.currency,
+      targetTitle: outcome.targetTitle,
+    }),
+  );
+
+  return { ok: true as const, already: false as const };
+}
+
+/** Mark pending donation failed/expired without touching raisedAmount. */
+export function markDonationFailed(
+  orderId: string,
+  providerPaymentId?: string,
+) {
   const db = getDb();
   const donation = db
     .select()
@@ -201,50 +319,52 @@ export async function markDonationPaid(orderId: string, providerPaymentId?: stri
     .where(eq(donations.orderId, orderId))
     .get();
 
-  if (!donation) return { ok: false as const, reason: "not_found" };
-  if (donation.status === "paid") return { ok: true as const, already: true };
-
-  const paidAt = nowIso();
-  db.update(donations)
-    .set({
-      status: "paid",
-      paidAt,
-      providerPaymentId: providerPaymentId || donation.providerPaymentId,
-    })
-    .where(and(eq(donations.id, donation.id), eq(donations.status, "pending")))
-    .run();
-
-  const target = db
-    .select()
-    .from(targets)
-    .where(eq(targets.id, donation.targetId))
-    .get();
-
-  if (target) {
-    const raised = Number(target.raisedAmount || 0) + Number(donation.amount);
-    const isGeneral = target.kind === "general" || Number(target.goalAmount) <= 0;
-    const shouldComplete =
-      !isGeneral && raised >= Number(target.goalAmount);
-    db.update(targets)
-      .set({
-        raisedAmount: raised,
-        status: shouldComplete ? "completed" : target.status,
-        completedAt: shouldComplete ? paidAt : target.completedAt,
-      })
-      .where(eq(targets.id, target.id))
-      .run();
-
-    await sendTelegramMessage(
-      donationTelegramText({
-        donorName: donation.donorName,
-        amount: donation.amount,
-        currency: donation.currency,
-        targetTitle: target.title,
-      }),
-    );
+  if (!donation) return { ok: false as const, reason: "not_found" as const };
+  if (donation.status === "paid") {
+    return { ok: true as const, already: true as const, ignored: true as const };
+  }
+  if (donation.status === "failed") {
+    return { ok: true as const, already: true as const };
   }
 
-  return { ok: true as const, already: false };
+  const updated = db
+    .update(donations)
+    .set({
+      status: "failed",
+      providerPaymentId: providerPaymentId || donation.providerPaymentId,
+    })
+    .where(
+      and(eq(donations.id, donation.id), eq(donations.status, "pending")),
+    )
+    .run();
+
+  return {
+    ok: true as const,
+    already: !updated.changes,
+  };
+}
+
+export function getRecentDonations(limit = 8) {
+  const db = getDb();
+  return db
+    .select({
+      donorName: donations.donorName,
+      amount: donations.amount,
+      currency: donations.currency,
+      paidAt: donations.paidAt,
+      createdAt: donations.createdAt,
+    })
+    .from(donations)
+    .where(eq(donations.status, "paid"))
+    .orderBy(desc(donations.paidAt), desc(donations.id))
+    .limit(limit)
+    .all()
+    .map((row) => ({
+      donorName: row.donorName || "ناشناس",
+      amount: Number(row.amount) || 0,
+      currency: row.currency || "USDT",
+      paidAt: row.paidAt || row.createdAt,
+    }));
 }
 
 export function getPublicPageData() {
@@ -256,8 +376,16 @@ export function getPublicPageData() {
     ...campaigns,
   ];
   const topDonors = getTopDonors(10);
+  const recentDonations = getRecentDonations(8);
   const history = listCompletedTargets().slice(0, 12);
-  return { general, campaigns, destinations, topDonors, history };
+  return {
+    general,
+    campaigns,
+    destinations,
+    topDonors,
+    recentDonations,
+    history,
+  };
 }
 
 export function logAdmin(action: string, detail?: string) {

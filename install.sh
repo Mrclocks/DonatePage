@@ -229,11 +229,10 @@ write_env_file() {
   local mode="$4"
   local allow_demo="$5"
   local api_key="$6"
-  local merchant_id="$7"
-  local webhook_secret="$8"
-  local tg_token="$9"
-  local tg_chat="${10}"
-  local admin_path="${11:-admin}"
+  local ipn_secret="$7"
+  local tg_token="$8"
+  local tg_chat="$9"
+  local admin_path="${10:-admin}"
 
   admin_path="$(printf '%s' "${admin_path}" | tr -cd 'A-Za-z0-9-_')"
   [[ -n "${admin_path}" ]] || admin_path="admin"
@@ -244,13 +243,11 @@ SESSION_SECRET=$(env_escape "${session_secret}")
 ADMIN_PASSWORD=$(env_escape "${admin_password}")
 ADMIN_PATH=$(env_escape "${admin_path}")
 DATA_DIR=/app/data
-ONEPAYMENT_MODE=$(env_escape "${mode}")
-ONEPAYMENT_ALLOW_DEMO=$(env_escape "${allow_demo}")
-ONEPAYMENT_API_KEY=$(env_escape "${api_key}")
-ONEPAYMENT_MERCHANT_ID=$(env_escape "${merchant_id}")
-ONEPAYMENT_WEBHOOK_SECRET=$(env_escape "${webhook_secret}")
-ONEPAYMENT_API_BASE=$(env_escape "https://api.onepayment.pro")
-ONEPAYMENT_CREATE_PATH=$(env_escape "/v1/payments")
+NOWPAYMENTS_MODE=$(env_escape "${mode}")
+NOWPAYMENTS_ALLOW_DEMO=$(env_escape "${allow_demo}")
+NOWPAYMENTS_API_KEY=$(env_escape "${api_key}")
+NOWPAYMENTS_IPN_SECRET=$(env_escape "${ipn_secret}")
+NOWPAYMENTS_API_BASE=$(env_escape "https://api.nowpayments.io")
 TELEGRAM_BOT_TOKEN=$(env_escape "${tg_token}")
 TELEGRAM_CHAT_ID=$(env_escape "${tg_chat}")
 NODE_ENV=production
@@ -303,7 +300,7 @@ do_install() {
 
   install_docker
 
-  local domain acme_email admin_password api_key merchant_id webhook_secret tg_token tg_chat
+  local domain acme_email admin_password api_key ipn_secret tg_token tg_chat
   local mode allow_demo session_secret admin_path
 
   read -r -p "  Domain (donate.example.com): " domain
@@ -317,9 +314,8 @@ do_install() {
   read -r -p "  Admin path [admin]: " admin_path
   admin_path="${admin_path:-admin}"
 
-  api_key="$(read_secret "  OnePayment API Key (empty = demo): ")"
-  read -r -p "  OnePayment Merchant ID (optional): " merchant_id
-  webhook_secret="$(read_secret "  OnePayment Webhook Secret: ")"
+  api_key="$(read_secret "  NOWPayments API Key (empty = demo): ")"
+  ipn_secret="$(read_secret "  NOWPayments IPN Secret: ")"
   tg_token="$(read_secret "  Telegram Bot Token (optional): ")"
   read -r -p "  Telegram Chat ID (optional): " tg_chat
 
@@ -337,13 +333,13 @@ do_install() {
     fi
   else
     mode="live"
-    [[ -n "${webhook_secret}" ]] || { err "Webhook secret required."; pause; return 1; }
+    [[ -n "${ipn_secret}" ]] || { err "IPN secret required."; pause; return 1; }
   fi
 
   session_secret="$(openssl rand -hex 32)"
   prepare_data_dir
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
+    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
   write_caddy_local "${domain}" "${acme_email}"
 
   open_firewall_hint
@@ -356,7 +352,7 @@ do_install() {
     ok "Install complete"
     echo "    Site:    https://${domain}"
     echo "    Admin:   https://${domain}/${admin_path}/login"
-    echo "    Webhook: https://${domain}/api/webhook/onepayment"
+    echo "    IPN:     https://${domain}/api/webhook/nowpayments"
   else
     err "Install finished but app is unhealthy."
     pause
@@ -445,7 +441,7 @@ do_settings() {
 
   load_env || { err "No .env — run Install first."; pause; return 1; }
 
-  local domain admin_password api_key merchant_id webhook_secret tg_token tg_chat acme_email
+  local domain admin_password api_key ipn_secret tg_token tg_chat acme_email
   local mode allow_demo admin_path session_secret
   local cur
   cur="$(current_domain)"
@@ -462,12 +458,10 @@ do_settings() {
   read -r -p "  Admin path [${ADMIN_PATH:-admin}]: " admin_path
   admin_path="${admin_path:-${ADMIN_PATH:-admin}}"
 
-  api_key="$(read_secret "  OnePayment API Key (Enter = keep): ")"
-  api_key="${api_key:-${ONEPAYMENT_API_KEY}}"
-  read -r -p "  OnePayment Merchant ID [${ONEPAYMENT_MERCHANT_ID-}]: " merchant_id
-  merchant_id="${merchant_id:-${ONEPAYMENT_MERCHANT_ID-}}"
-  webhook_secret="$(read_secret "  OnePayment Webhook Secret (Enter = keep): ")"
-  webhook_secret="${webhook_secret:-${ONEPAYMENT_WEBHOOK_SECRET-}}"
+  api_key="$(read_secret "  NOWPayments API Key (Enter = keep): ")"
+  api_key="${api_key:-${NOWPAYMENTS_API_KEY-}}"
+  ipn_secret="$(read_secret "  NOWPayments IPN Secret (Enter = keep): ")"
+  ipn_secret="${ipn_secret:-${NOWPAYMENTS_IPN_SECRET-}}"
   tg_token="$(read_secret "  Telegram Bot Token (Enter = keep): ")"
   tg_token="${tg_token:-${TELEGRAM_BOT_TOKEN-}}"
   read -r -p "  Telegram Chat ID [${TELEGRAM_CHAT_ID-}]: " tg_chat
@@ -483,7 +477,7 @@ do_settings() {
 
   session_secret="${SESSION_SECRET:-$(openssl rand -hex 32)}"
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${merchant_id}" "${webhook_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
+    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
   write_caddy_local "${domain}" "${acme_email}"
 
   info "Applying settings (no image rebuild)..."
@@ -507,7 +501,7 @@ do_status() {
   if load_env 2>/dev/null; then
     echo "  APP_URL=${APP_URL-}"
     echo "  ADMIN_PATH=${ADMIN_PATH-admin}"
-    echo "  MODE=${ONEPAYMENT_MODE-}"
+    echo "  MODE=${NOWPAYMENTS_MODE-}"
   fi
   if curl -fsS "http://127.0.0.1:3000/api/health" >/dev/null 2>&1; then
     echo

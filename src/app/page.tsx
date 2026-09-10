@@ -1,4 +1,4 @@
-import { HeartHandshake, History, Sparkles, Target, Users, Wallet } from "lucide-react";
+import { Clock3, HeartHandshake, History, Sparkles, Target, Users, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { DonateForm } from "@/components/donate-form";
 import { GlassCard } from "@/components/glass-card";
@@ -26,6 +26,7 @@ export default async function HomePage({
   let campaigns: PublicData["campaigns"] = [];
   let destinations: PublicData["destinations"] = [];
   let topDonors: PublicData["topDonors"] = [];
+  let recentDonations: PublicData["recentDonations"] = [];
   let history: PublicData["history"] = [];
   let general: PublicData["general"] = undefined;
 
@@ -34,12 +35,14 @@ export default async function HomePage({
     campaigns = data.campaigns;
     destinations = data.destinations;
     topDonors = data.topDonors;
+    recentDonations = data.recentDonations;
     history = data.history;
     general = data.general;
   } catch {
     campaigns = [];
     destinations = [];
     topDonors = [];
+    recentDonations = [];
     history = [];
   }
 
@@ -133,6 +136,38 @@ export default async function HomePage({
             }))}
             canceled={canceled}
           />
+        </GlassCard>
+
+        <GlassCard
+          title="دونیت‌های اخیر"
+          icon={<Clock3 className="h-5 w-5" strokeWidth={2.25} />}
+        >
+          <div className="flex flex-col gap-3">
+            {recentDonations.length === 0 ? (
+              <p className="text-sm text-slate-400">هنوز دونیتی ثبت نشده</p>
+            ) : (
+              recentDonations.map((donation, index) => (
+                <div
+                  key={`${donation.donorName}-${donation.paidAt}-${index}`}
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-white/8 bg-black/15 px-4 py-3.5"
+                >
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate text-slate-100">
+                      {donation.donorName}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {donation.paidAt
+                        ? new Date(donation.paidAt).toLocaleDateString("fa-IR")
+                        : ""}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-sm font-medium text-orange-300">
+                    {formatMoney(donation.amount)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         </GlassCard>
 
         <GlassCard
