@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { markDonationPaid } from "@/lib/donations";
-import { isDemoMode } from "@/lib/onepayment";
+import { isDemoMode } from "@/lib/nowpayments";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -11,6 +11,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  // Hard block outside explicit demo mode (impossible to hit accidentally in live prod).
   if (!isDemoMode()) {
     return NextResponse.json({ error: "Demo disabled" }, { status: 403 });
   }

@@ -277,7 +277,7 @@ export function AdminPanel() {
           </AlertBox>
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Tag className="border-orange-400/30 bg-orange-500/10 text-orange-200">
-              USDT · BEP20
+              USDT · NOWPayments
             </Tag>
           </div>
           <div className="grid gap-6 md:grid-cols-2">

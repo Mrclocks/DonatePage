@@ -26,6 +26,17 @@ export function rateLimit(
 
 export function clientIp(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
-  return request.headers.get("x-real-ip") || "unknown";
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim() || "";
+    // Basic sanity: reject empty / header injection-ish values
+    if (first && first.length <= 64 && !/[\s\r\n]/.test(first)) {
+      return first;
+    }
+  }
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp && realIp.length <= 64 && !/[\s\r\n]/.test(realIp)) {
+    return realIp;
+  }
+  return "unknown";
 }
+

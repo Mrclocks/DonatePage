@@ -99,7 +99,7 @@ export function DonateForm({
         <div className="flex items-center justify-between gap-3">
           <Label>مقصد حمایت</Label>
           <Tag className="border-orange-400/30 bg-orange-500/10 text-orange-200">
-            USDT · BEP20
+            USDT · NOWPayments
           </Tag>
         </div>
         <div className="flex flex-col gap-3">

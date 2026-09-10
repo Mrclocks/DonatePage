@@ -14,10 +14,8 @@ export async function POST() {
   );
 
   if (!result.ok) {
-    return NextResponse.json(
-      { error: result.reason || "Telegram send failed" },
-      { status: 400 },
-    );
+    // Do not echo Telegram API bodies (may include sensitive diagnostics).
+    return NextResponse.json({ error: "Telegram send failed" }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true });

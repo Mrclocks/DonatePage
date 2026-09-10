@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 const COOKIE_NAME = "mrclock_admin";
 const ADMIN_PATH_COOKIE = "mrclock_admin_path";
 const PASSWORD_HASH_KEY = "adminPasswordHash";
+const SESSION_NBF_KEY = "adminSessionNotBefore";
 
 function getSecret() {
   const secret =
@@ -53,12 +54,48 @@ export async function destroyAdminSession() {
   cookieStore.delete(COOKIE_NAME);
 }
 
+/** Invalidate all admin JWTs issued before now (e.g. after password change). */
+export function invalidateAdminSessions() {
+  try {
+    const db = getDb();
+    const value = String(Math.floor(Date.now() / 1000));
+    db.insert(settings)
+      .values({ key: SESSION_NBF_KEY, value })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value },
+      })
+      .run();
+  } catch {
+    // best-effort; cookie delete still applies to current client
+  }
+}
+
+function getSessionNotBefore() {
+  try {
+    const db = getDb();
+    const row = db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, SESSION_NBF_KEY))
+      .get();
+    const nbf = Number(row?.value || 0);
+    return Number.isFinite(nbf) ? nbf : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function isAdminAuthenticated() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
     if (!token) return false;
-    await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSecret());
+    const nbf = getSessionNotBefore();
+    if (nbf && typeof payload.iat === "number" && payload.iat < nbf) {
+      return false;
+    }
     return true;
   } catch {
     return false;

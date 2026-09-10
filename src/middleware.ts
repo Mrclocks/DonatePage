@@ -46,6 +46,7 @@ export function middleware(request: NextRequest) {
     response.cookies.set("mrclock_admin_path", adminPath, {
       path: "/",
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 365,
     });
     return applySecurityHeaders(response, pathname);
@@ -60,6 +61,7 @@ export function middleware(request: NextRequest) {
     response.cookies.set("mrclock_admin_path", adminPath, {
       path: "/",
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 365,
     });
     return applySecurityHeaders(response, pathname);
