@@ -70,3 +70,45 @@ body > * {
 ::selection {
   background: rgba(249, 115, 22, 0.35);
 }
+
+@keyframes brand-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 40px rgba(249, 115, 22, 0.28);
+  }
+  50% {
+    box-shadow: 0 0 56px rgba(249, 115, 22, 0.42);
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dest-select {
+  from {
+    transform: scale(0.98);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.hero-rise {
+  animation: hero-rise 0.7s ease-out both;
+}
+
+.hero-rise-delay {
+  animation: hero-rise 0.75s ease-out 0.12s both;
+}
+
+.dest-active {
+  animation: dest-select 0.22s ease-out;
+}

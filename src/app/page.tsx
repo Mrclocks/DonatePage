@@ -48,11 +48,36 @@ export default async function HomePage({
 
   return (
     <main className="relative mx-auto flex w-full max-w-6xl flex-col px-4 py-10 md:px-8 md:py-12">
-      <header className="flex items-center justify-start">
-        <BrandMark large />
+      <header className="flex flex-col items-center justify-center text-center">
+        <div className="hero-rise">
+          <BrandMark large stacked />
+        </div>
+        <h1 className="hero-rise-delay mt-8 max-w-3xl text-balance text-3xl font-bold leading-[1.45] tracking-tight text-white sm:text-4xl md:mt-10 md:text-5xl md:leading-[1.4]">
+          حمایت شما انگیزه برای کارهای بزرگ است
+        </h1>
+        <p className="hero-rise-delay mt-4 max-w-xl text-base leading-8 text-slate-400 md:text-lg md:leading-9">
+          با انتخاب مقصد حمایت، مستقیم به رشد MrClock کمک کنید.
+        </p>
       </header>
 
-      <div className="mt-10 grid gap-6 md:mt-12 lg:grid-cols-2 lg:gap-8">
+      <div className="mt-12 grid gap-6 md:mt-14 lg:grid-cols-2 lg:gap-8">
+        <GlassCard
+          title="حمایت کنید"
+          icon={<HeartHandshake className="h-5 w-5" strokeWidth={2.25} />}
+        >
+          <DonateForm
+            destinations={destinations.map((d) => ({
+              id: d.id,
+              title: d.title,
+              kind: d.kind,
+              goalAmount: d.goalAmount,
+              raisedAmount: d.raisedAmount,
+              status: d.status,
+            }))}
+            canceled={canceled}
+          />
+        </GlassCard>
+
         <GlassCard
           className="lg:row-span-1"
           title="کمپین‌های فعال"
@@ -99,10 +124,8 @@ export default async function HomePage({
                           {campaign.title}
                         </p>
                       </div>
-                      <span className="inline-flex items-center justify-center rounded-full border border-orange-400/30 bg-orange-500/15 px-3 py-1.5 text-xs font-medium leading-none text-orange-200">
-                        <span className="translate-y-[0.5px] leading-none">
-                          {Math.round(percent)}%
-                        </span>
+                      <span className="inline-flex h-7 items-center justify-center rounded-full border border-orange-400/30 bg-orange-500/15 px-3 text-xs font-medium leading-none text-orange-200">
+                        {Math.round(percent)}%
                       </span>
                     </div>
                     <Progress value={percent} className="h-2.5" />
@@ -119,23 +142,6 @@ export default async function HomePage({
               })}
             </div>
           )}
-        </GlassCard>
-
-        <GlassCard
-          title="حمایت کنید"
-          icon={<HeartHandshake className="h-5 w-5" strokeWidth={2.25} />}
-        >
-          <DonateForm
-            destinations={destinations.map((d) => ({
-              id: d.id,
-              title: d.title,
-              kind: d.kind,
-              goalAmount: d.goalAmount,
-              raisedAmount: d.raisedAmount,
-              status: d.status,
-            }))}
-            canceled={canceled}
-          />
         </GlassCard>
 
         <GlassCard
@@ -234,8 +240,8 @@ export default async function HomePage({
                             : ""}
                         </p>
                       </div>
-                      <span className="inline-flex items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1.5 text-[11px] font-medium leading-none text-emerald-300">
-                        <span className="leading-none">تکمیل شده</span>
+                      <span className="inline-flex h-6 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 text-[11px] font-medium leading-none text-emerald-300">
+                        تکمیل شده
                       </span>
                     </div>
                     <Progress value={itemPercent} className="h-2" />
