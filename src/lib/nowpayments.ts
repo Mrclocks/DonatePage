@@ -1,5 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+/** NOWPayments invoice price denomination for this app (USDT, not fiat USD). */
+export const PRICE_CURRENCY = "usdt" as const;
+
 export type CreateInvoiceInput = {
   orderId: string;
   amount: number;
@@ -20,8 +23,12 @@ export type IpnExtract = {
   paid: boolean;
   failed: boolean;
   orderId: string;
-  providerPaymentId: string;
+  /** payment_id from IPN (created when customer pays an invoice). */
+  paymentId: string;
+  /** invoice_id from IPN (matches Hosted Invoice create response id). */
+  invoiceId: string;
   priceAmount: number;
+  priceCurrency: string;
   paymentStatus: string;
 };
 
@@ -86,14 +93,15 @@ export async function createNowPaymentsInvoice(
     throw new Error("NOWPAYMENTS_API_KEY is missing");
   }
 
-  // Amounts/goals are USDT-denominated; NOWPayments invoice price uses USD at 1:1.
+  // Price the Hosted Invoice in USDT so the selected donation amount is the
+  // invoice amount — not a USD fiat approximation.
   const description = input.donorName
     ? `Donation from ${input.donorName}`
     : `Donation ${input.orderId}`;
 
   const payload = {
     price_amount: Number(input.amount.toFixed(8)),
-    price_currency: "usd",
+    price_currency: PRICE_CURRENCY,
     order_id: input.orderId,
     order_description: description,
     ipn_callback_url: input.ipnCallbackUrl,
@@ -122,9 +130,12 @@ export async function createNowPaymentsInvoice(
     throw new Error("NOWPayments response missing invoice_url");
   }
 
+  // Store invoice id; IPNs later include invoice_id and/or payment_id.
+  const invoiceId = data.id != null ? String(data.id) : "";
+
   return {
     checkoutUrl,
-    providerPaymentId: String(data.id || data.payment_id || ""),
+    providerPaymentId: invoiceId || undefined,
     raw,
   };
 }
@@ -186,29 +197,70 @@ export function extractIpnPayment(payload: Record<string, unknown>): IpnExtract 
   ).toLowerCase();
 
   const orderId = String(payload.order_id || payload.orderId || "");
-  const providerPaymentId = String(
-    payload.payment_id || payload.invoice_id || payload.id || "",
-  );
+  const paymentId =
+    payload.payment_id != null && String(payload.payment_id) !== ""
+      ? String(payload.payment_id)
+      : "";
+  const invoiceId =
+    payload.invoice_id != null && String(payload.invoice_id) !== ""
+      ? String(payload.invoice_id)
+      : "";
 
-  const priceAmount = Number(
-    payload.price_amount ?? payload.actually_paid_at_fiat ?? 0,
-  );
+  const priceAmount = Number(payload.price_amount ?? 0);
+  const priceCurrency = String(payload.price_currency || "")
+    .trim()
+    .toLowerCase();
 
   return {
     paid: PAID_STATUSES.has(paymentStatus),
     failed: FAILED_STATUSES.has(paymentStatus),
     orderId,
-    providerPaymentId,
+    paymentId,
+    invoiceId,
     priceAmount: Number.isFinite(priceAmount) ? priceAmount : 0,
+    priceCurrency,
     paymentStatus,
   };
 }
 
-/** Accept IPN price when it covers the original donation (USDT ≈ USD 1:1). */
+/**
+ * If we already stored a provider id (invoice id), the IPN must reference it
+ * via invoice_id or payment_id. Never accept a conflicting provider payment.
+ */
+export function providerPaymentMatches(
+  storedProviderPaymentId: string | null | undefined,
+  ipn: Pick<IpnExtract, "paymentId" | "invoiceId">,
+): boolean {
+  const stored = storedProviderPaymentId?.trim();
+  if (!stored) return true;
+
+  const candidates = [ipn.invoiceId, ipn.paymentId]
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (candidates.length === 0) return false;
+  return candidates.some((id) => id === stored);
+}
+
+/** Preferred id to persist from IPN (keep invoice id if that is what we stored). */
+export function resolveProviderPaymentId(
+  storedProviderPaymentId: string | null | undefined,
+  ipn: Pick<IpnExtract, "paymentId" | "invoiceId">,
+): string | undefined {
+  const stored = storedProviderPaymentId?.trim();
+  if (stored) return stored;
+  return ipn.invoiceId || ipn.paymentId || undefined;
+}
+
+/** Accept IPN price_amount when it covers the original USDT donation amount. */
 export function amountsMatch(expected: number, received: number) {
   if (!Number.isFinite(expected) || !Number.isFinite(received)) return false;
   if (expected <= 0 || received <= 0) return false;
   // Allow tiny float noise; reject underpayment.
   const tolerance = Math.max(0.01, expected * 0.001);
   return received + tolerance >= expected;
+}
+
+export function priceCurrencyIsUsdt(currency: string) {
+  return currency.trim().toLowerCase() === PRICE_CURRENCY;
 }
