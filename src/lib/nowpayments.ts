@@ -62,6 +62,10 @@ export function isDemoMode() {
 
 export function assertLiveConfigured() {
   if (process.env.NODE_ENV !== "production") return;
+  // Callbacks/IPN must never be derived from client-controlled Origin/Host.
+  if (!process.env.APP_URL?.trim()) {
+    throw new Error("APP_URL is required in production");
+  }
   if (process.env.NOWPAYMENTS_ALLOW_DEMO === "true") return;
   if (!process.env.NOWPAYMENTS_API_KEY) {
     throw new Error("NOWPAYMENTS_API_KEY is required in production");

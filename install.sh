@@ -467,12 +467,22 @@ do_settings() {
   read -r -p "  Telegram Chat ID [${TELEGRAM_CHAT_ID-}]: " tg_chat
   tg_chat="${tg_chat:-${TELEGRAM_CHAT_ID-}}"
 
+  # Never silently enable production demo — that would allow free mark-paid via /api/demo-pay.
+  allow_demo="false"
   if [[ -z "${api_key}" ]]; then
-    mode="demo"
-    allow_demo="true"
+    read -r -p "  Enable DEMO on public server? [y/N]: " allow
+    if [[ "${allow,,}" == "y" || "${allow,,}" == "yes" ]]; then
+      mode="demo"
+      allow_demo="true"
+      warn "Demo mode enabled"
+    else
+      err "API key required for live settings."
+      pause
+      return 1
+    fi
   else
     mode="live"
-    allow_demo="false"
+    [[ -n "${ipn_secret}" ]] || { err "IPN secret required for live mode."; pause; return 1; }
   fi
 
   session_secret="${SESSION_SECRET:-$(openssl rand -hex 32)}"

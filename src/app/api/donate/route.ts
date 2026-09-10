@@ -22,10 +22,17 @@ const schema = z.object({
 });
 
 function appUrl(request: Request) {
+  const configured = process.env.APP_URL?.trim().replace(/\/$/, "");
+  if (configured) return configured;
+
+  // Never trust Origin/Host in production — attackers can point IPN/success URLs elsewhere.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("APP_URL is required in production");
+  }
+
   return (
-    process.env.APP_URL ||
     request.headers.get("origin") ||
-    `https://${request.headers.get("host")}`
+    `http://${request.headers.get("host") || "localhost:3000"}`
   ).replace(/\/$/, "");
 }
 
