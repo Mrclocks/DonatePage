@@ -139,34 +139,36 @@ export function DonateForm({
                 aria-checked={active}
                 onClick={() => setTargetId(dest.id)}
                 className={cn(
-                  "group overflow-hidden rounded-2xl border px-4 py-4 text-right transition duration-200",
+                  "group w-full overflow-hidden rounded-2xl border p-0 text-right transition duration-200",
                   active
-                    ? "dest-active border-orange-400/55 bg-gradient-to-l from-orange-500/20 via-orange-500/10 to-transparent shadow-[0_0_32px_rgba(249,115,22,0.2)]"
+                    ? isGeneral
+                      ? "dest-active border-sky-400/55 bg-gradient-to-l from-sky-500/20 via-sky-500/10 to-transparent shadow-[0_0_32px_rgba(56,189,248,0.2)]"
+                      : "dest-active border-orange-400/55 bg-gradient-to-l from-orange-500/20 via-orange-500/10 to-transparent shadow-[0_0_32px_rgba(249,115,22,0.2)]"
                     : "border-white/12 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.055]",
                 )}
               >
-                <div className="flex items-start gap-3.5">
-                  <span
-                    className={cn(
-                      "mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition",
-                      isGeneral
-                        ? active
-                          ? "border-sky-300/50 bg-sky-500/20 text-sky-200 shadow-[0_0_24px_rgba(56,189,248,0.22)]"
-                          : "border-sky-400/30 bg-sky-500/12 text-sky-300"
-                        : active
-                          ? "border-orange-300/50 bg-orange-500/20 text-orange-200 shadow-[0_0_24px_rgba(249,115,22,0.22)]"
-                          : "border-orange-400/30 bg-orange-500/12 text-orange-300",
-                    )}
-                  >
-                    {isGeneral ? (
-                      <HeartHandshake className="h-5 w-5" strokeWidth={2.25} />
-                    ) : (
-                      <Target className="h-5 w-5" strokeWidth={2.25} />
-                    )}
-                  </span>
+                <div className="flex w-full flex-col gap-3 px-4 py-4">
+                  <div className="flex w-full min-w-0 items-start gap-3.5">
+                    <span
+                      className={cn(
+                        "mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition",
+                        isGeneral
+                          ? active
+                            ? "border-sky-300/50 bg-sky-500/20 text-sky-200 shadow-[0_0_24px_rgba(56,189,248,0.22)]"
+                            : "border-sky-400/30 bg-sky-500/12 text-sky-300"
+                          : active
+                            ? "border-orange-300/50 bg-orange-500/20 text-orange-200 shadow-[0_0_24px_rgba(249,115,22,0.22)]"
+                            : "border-orange-400/30 bg-orange-500/12 text-orange-300",
+                      )}
+                    >
+                      {isGeneral ? (
+                        <HeartHandshake className="h-5 w-5" strokeWidth={2.25} />
+                      ) : (
+                        <Target className="h-5 w-5" strokeWidth={2.25} />
+                      )}
+                    </span>
 
-                  <div className="min-w-0 flex-1 flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
                       <div className="min-w-0 flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold leading-snug text-white">
@@ -194,7 +196,9 @@ export function DonateForm({
                         className={cn(
                           "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition",
                           active
-                            ? "border-orange-300 bg-orange-500 text-white shadow-[0_0_16px_rgba(249,115,22,0.45)]"
+                            ? isGeneral
+                              ? "border-sky-300 bg-sky-500 text-white shadow-[0_0_16px_rgba(56,189,248,0.45)]"
+                              : "border-orange-300 bg-orange-500 text-white shadow-[0_0_16px_rgba(249,115,22,0.45)]"
                             : "border-white/20 bg-transparent text-transparent group-hover:border-white/35",
                         )}
                         aria-hidden
@@ -202,32 +206,32 @@ export function DonateForm({
                         <Check className="h-3.5 w-3.5" strokeWidth={3} />
                       </span>
                     </div>
-
-                    {isGeneral ? (
-                      <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-400/15 bg-sky-500/[0.07] px-3 py-2.5">
-                        <span className="text-xs text-sky-200/80">
-                          جمع حمایت عمومی
-                        </span>
-                        <span className="text-sm font-medium text-sky-100">
-                          {formatMoney(dest.raisedAmount)}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
-                          <span>
-                            {formatMoney(dest.raisedAmount)}
-                            <span className="mx-1.5 text-slate-600">/</span>
-                            {formatMoney(dest.goalAmount)}
-                          </span>
-                          <span className="font-medium text-orange-200">
-                            {Math.round(percent)}%
-                          </span>
-                        </div>
-                        <Progress value={percent} className="h-2" />
-                      </div>
-                    )}
                   </div>
+
+                  {isGeneral ? (
+                    <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-sky-400/15 bg-sky-500/[0.07] px-3 py-2.5">
+                      <span className="text-xs text-sky-200/80">
+                        جمع حمایت عمومی
+                      </span>
+                      <span className="text-sm font-medium text-sky-100">
+                        {formatMoney(dest.raisedAmount)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex w-full flex-col gap-2">
+                      <div className="flex w-full items-center justify-between gap-3 text-xs text-slate-300">
+                        <span>
+                          {formatMoney(dest.raisedAmount)}
+                          <span className="mx-1.5 text-slate-600">/</span>
+                          {formatMoney(dest.goalAmount)}
+                        </span>
+                        <span className="font-medium text-orange-200">
+                          {Math.round(percent)}%
+                        </span>
+                      </div>
+                      <Progress value={percent} className="h-2 w-full" />
+                    </div>
+                  )}
                 </div>
               </button>
             );
