@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       extracted.orderId,
       extracted.providerPaymentId || undefined,
     );
-    return NextResponse.json({ ok: true, failed: true, ...result });
+    return NextResponse.json({ failed: true, ...result });
   }
 
   if (!extracted.paid) {
