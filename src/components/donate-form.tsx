@@ -32,6 +32,7 @@ export function DonateForm({
 }) {
   const initialId =
     defaultTargetId ??
+    destinations.find((d) => d.kind !== "general")?.id ??
     destinations.find((d) => d.kind === "general")?.id ??
     destinations[0]?.id ??
     null;
