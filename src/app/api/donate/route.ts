@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     if (amountIssue) {
       return NextResponse.json(
         {
-          error: `حداقل مبلغ حمایت ${MIN_DONATION_USDT} USDT است (محدودیت شبکه NOWPayments)`,
+          error: `حداقل مبلغ حمایت ${MIN_DONATION_USDT} USDT است`,
         },
         { status: 400 },
       );
