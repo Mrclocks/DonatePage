@@ -126,97 +126,11 @@ async function postNowPayments(
   return { response, raw };
 }
 
-async function nowPaymentsGet(
-  apiKey: string,
-  pathWithQuery: string,
-): Promise<Record<string, unknown> | null> {
-  try {
-    const response = await fetch(`${apiBase()}${pathWithQuery}`, {
-      headers: { "x-api-key": apiKey },
-      cache: "no-store",
-    });
-    if (!response.ok) return null;
-    const raw = (await response.json().catch(() => null)) as Record<
-      string,
-      unknown
-    > | null;
-    return raw && typeof raw === "object" ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
 /**
- * True only when estimated crypto for this USD amount is safely above the
- * live network minimum. If estimate/min cannot be loaded, return false so we
- * do NOT force pay_currency (that is what breaks $1–$5 on USDT BSC while
- * other donate pages still work — they leave coin unlocked).
- */
-async function canSoftPreferPayCurrency(
-  apiKey: string,
-  amountUsd: number,
-  payCurrency: string,
-): Promise<boolean> {
-  const estimate = await nowPaymentsGet(
-    apiKey,
-    `/v1/estimate?amount=${encodeURIComponent(String(amountUsd))}&currency_from=${encodeURIComponent(
-      PRICE_CURRENCY,
-    )}&currency_to=${encodeURIComponent(payCurrency)}`,
-  );
-  const estimatedCrypto = Number(estimate?.estimated_amount);
-  if (!Number.isFinite(estimatedCrypto) || estimatedCrypto <= 0) return false;
-
-  // Mono-currency min in the pay coin (same units as estimated_amount).
-  const minSame = await nowPaymentsGet(
-    apiKey,
-    `/v1/min-amount?currency_from=${encodeURIComponent(
-      payCurrency,
-    )}&currency_to=${encodeURIComponent(payCurrency)}&fiat_equivalent=usd`,
-  );
-  const minCrypto = Number(minSame?.min_amount);
-  if (Number.isFinite(minCrypto) && minCrypto > 0) {
-    // Buffer: hosted Confirm can quote slightly under the UI amount (fees).
-    return estimatedCrypto >= minCrypto * 1.05;
-  }
-
-  // Fallback: USD-denominated min for usd → pay coin.
-  const minFiat = await nowPaymentsGet(
-    apiKey,
-    `/v1/min-amount?currency_from=${encodeURIComponent(
-      PRICE_CURRENCY,
-    )}&currency_to=${encodeURIComponent(payCurrency)}&fiat_equivalent=usd`,
-  );
-  const minUsd = Number(minFiat?.fiat_equivalent ?? minFiat?.min_amount);
-  if (Number.isFinite(minUsd) && minUsd > 0) {
-    return amountUsd >= minUsd * 1.05;
-  }
-
-  return false;
-}
-
-/**
- * Soft-prefer pay coin only when we know the amount clears that coin's live
- * minimum. If unsure, omit pay_currency — other donate pages work at $1
- * because they do not lock the payer onto USDT BSC under-min.
- */
-export async function resolvePreferredPayCurrencyForAmount(
-  apiKey: string,
-  amount: number,
-): Promise<string | undefined> {
-  const preferred = resolvePayCurrency();
-  if (!preferred) return undefined;
-
-  const payTicker =
-    preferred === "usdtbep20" || preferred === "bep20" ? "usdtbsc" : preferred;
-
-  const ok = await canSoftPreferPayCurrency(apiKey, amount, payTicker);
-  return ok ? preferred : undefined;
-}
-
-/**
- * Hosted NOWPayments checkout (like PasarGuard donate):
- * create invoice priced in USD and redirect to invoice_url.
- * Soft-prefer pay_currency when amount clears that network's minimum.
+ * Hosted NOWPayments checkout like working donate pages (e.g. PasarGuard):
+ * price in USD, leave pay_currency unset so the gateway shows Choose asset.
+ * Locking pay_currency=usdtbsc makes Confirm auto-fail under that network's
+ * live minimum (page stuck on Key things / email only).
  */
 export async function createNowPaymentsInvoice(
   input: CreateInvoiceInput,
@@ -248,16 +162,13 @@ export async function createNowPaymentsInvoice(
     ? `Donation from ${trimmedName}`
     : `Anonymous donation ${input.orderId}`;
   const amount = Number(input.amount.toFixed(8));
-  const preferredPay = await resolvePreferredPayCurrencyForAmount(
-    apiKey,
-    amount,
-  );
 
-  const baseInvoice = {
+  const payload: Record<string, unknown> = {
     price_amount: amount,
-    // Do NOT use price_currency=usdt — invoice create may succeed, but hosted
-    // /invoice-payment Confirm fails with "Price currency USDT is not allowed".
+    // Do NOT use price_currency=usdt — Confirm fails: "Price currency USDT is not allowed".
     price_currency: PRICE_CURRENCY,
+    // Do NOT set pay_currency — must stay null like PasarGuard or Confirm locks
+    // onto USDTBSC and dies under that pair's minimum.
     order_id: input.orderId,
     order_description: description,
     ipn_callback_url: input.ipnCallbackUrl,
@@ -265,40 +176,26 @@ export async function createNowPaymentsInvoice(
     cancel_url: input.cancelUrl,
   };
 
-  const attempts: Array<Record<string, unknown>> = preferredPay
-    ? [
-        { ...baseInvoice, pay_currency: preferredPay },
-        // Fallback: open gateway without preferred coin if usdtbsc is disabled.
-        { ...baseInvoice },
-      ]
-    : [{ ...baseInvoice }];
-
-  const errors: string[] = [];
-  for (const payload of attempts) {
-    const { response, raw } = await postNowPayments(apiKey, "/v1/invoice", payload);
-    if (!response.ok) {
-      errors.push(extractNowPaymentsError(raw, response.status));
-      continue;
-    }
-
-    const data = raw as Record<string, unknown>;
-    const invoiceId =
-      data.id != null && String(data.id) !== "" ? String(data.id) : "";
-    const invoiceUrl = String(data.invoice_url || "").trim();
-    if (!invoiceId || !invoiceUrl) {
-      throw new Error("NOWPayments response missing invoice_url");
-    }
-
-    return {
-      checkoutUrl: invoiceUrl,
-      providerPaymentId: invoiceId,
-      payAmount: amount,
-      payCurrency: preferredPay,
-      raw,
-    };
+  const { response, raw } = await postNowPayments(apiKey, "/v1/invoice", payload);
+  if (!response.ok) {
+    throw new Error(extractNowPaymentsError(raw, response.status));
   }
 
-  throw new Error(errors.filter(Boolean).join(" | ") || "NOWPayments invoice failed");
+  const data = raw as Record<string, unknown>;
+  const invoiceId =
+    data.id != null && String(data.id) !== "" ? String(data.id) : "";
+  const invoiceUrl = String(data.invoice_url || "").trim();
+  if (!invoiceId || !invoiceUrl) {
+    throw new Error("NOWPayments response missing invoice_url");
+  }
+
+  return {
+    checkoutUrl: invoiceUrl,
+    providerPaymentId: invoiceId,
+    payAmount: amount,
+    payCurrency: undefined,
+    raw,
+  };
 }
 
 /** Recursively sort object keys (NOWPayments IPN requirement). */

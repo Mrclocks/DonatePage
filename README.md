@@ -10,7 +10,7 @@ One line (works if already installed — pulls latest `main`):
 cd ~; [ -d DonatePage/.git ] || git clone https://github.com/Mrclocks/DonatePage.git DonatePage; cd DonatePage; [ -f Caddyfile.local ] || { [ -f Caddyfile ] && ! grep -q '{$DOMAIN' Caddyfile 2>/dev/null && cp Caddyfile Caddyfile.local; true; }; git fetch origin main && git reset --hard origin/main && bash install.sh
 ```
 
-Correct menu shows: **Installer · Manager** and version `2026.09.15r`  
+Correct menu shows: **Installer · Manager** and version `2026.09.15s`  
 If you still see old `Ubuntu Menu` / `Diagnose 503`, you are on the old script.
 
 | Key | Action |
@@ -50,9 +50,9 @@ After install: open admin → set targets. Paste the printed IPN URL into the NO
 - `ACME_EMAIL` — Let's Encrypt contact (Caddy)
 - `NOWPAYMENTS_API_KEY` — server-only API key
 - `NOWPAYMENTS_IPN_SECRET` — IPN HMAC-SHA512 secret
-- `NOWPAYMENTS_PAY_CURRENCY` — soft-preferred donor pay coin on hosted checkout (default `usdtbsc`; applied only when estimate is safely above that pair’s live `/min-amount`, otherwise omitted so small donations work like other donate pages)
+- `NOWPAYMENTS_PAY_CURRENCY` — unused for hosted checkout (kept for compatibility; invoices never lock `pay_currency`)
 - `NOWPAYMENTS_API_BASE` — default `https://api.nowpayments.io`
 - `NOWPAYMENTS_ALLOW_DEMO` — must be `true` to allow demo checkout in production (not recommended)
 - `APP_IMAGE` — optional override for the app container image
 
-Invoices are priced in **USD** (`price_currency=usd`) so hosted Confirm works on typical merchant accounts that reject USDT as a *price* currency. Donors still pay crypto. USDT BEP20 is soft-preferred only when NOWPayments estimate clears the live network minimum (with a small buffer for fee rounding); otherwise the gateway opens with coin unlocked — the same pattern other $1-capable donate pages use.
+Invoices are priced in **USD** with **no `pay_currency`**, matching working donate pages: the NOWPayments UI shows “Choose asset” (often BTC first). Donors can switch to USDT BEP20 when that network’s live minimum allows it. Locking `pay_currency=usdtbsc` was what stuck Confirm on under-min BSC amounts.
