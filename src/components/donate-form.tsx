@@ -282,7 +282,8 @@ export function DonateForm({
       <div className="flex flex-col gap-2">
         <Label>مبلغ</Label>
         <p className="text-xs leading-5 text-slate-500">
-          حداقل {MIN_DONATION_USDT} USDT (محدودیت شبکه پرداخت)
+          حداقل {MIN_DONATION_USDT} USDT — برای مبالغ کم ممکن است شبکهٔ BEP20
+          در درگاه در دسترس نباشد؛ ارز دیگری انتخاب کنید
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {DONATION_AMOUNT_PRESETS.map((value) => (
