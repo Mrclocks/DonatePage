@@ -3,13 +3,13 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /** NOWPayments invoice price denomination for this app (USDT, not fiat USD). */
 export const PRICE_CURRENCY = "usdt" as const;
 
-/** Default network for paying the USDT invoice (TRC20 = low fees). */
-export const DEFAULT_PAY_CURRENCY = "usdttrc20" as const;
+/** Default network for paying the USDT invoice (BEP20 / BSC). */
+export const DEFAULT_PAY_CURRENCY = "usdtbsc" as const;
 
 const USDT_PAY_PREFERENCE = [
-  "usdttrc20",
   "usdtbsc",
   "usdtbep20",
+  "usdttrc20",
   "usdterc20",
   "usdtmatic",
   "usdtarb",
@@ -90,7 +90,12 @@ export function assertLiveConfigured() {
 
 function configuredPayCurrency() {
   const raw = process.env.NOWPAYMENTS_PAY_CURRENCY?.trim().toLowerCase();
-  return raw || "";
+  if (!raw) return "";
+  // Common alias users type for Binance Smart Chain USDT.
+  if (raw === "usdtbep20" || raw === "bep20" || raw === "usdt-bep20") {
+    return "usdtbsc";
+  }
+  return raw;
 }
 
 /**
