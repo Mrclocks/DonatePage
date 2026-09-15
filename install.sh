@@ -410,12 +410,12 @@ write_env_file() {
   local tg_chat="$9"
   local admin_path="${10:-admin}"
   local acme_email="${11-}"
-  local pay_currency="${12:-usdtbsc}"
+  local pay_currency="${12:-usdttrc20}"
 
   admin_path="$(printf '%s' "${admin_path}" | tr -cd 'A-Za-z0-9-_')"
   [[ -n "${admin_path}" ]] || admin_path="admin"
   pay_currency="$(printf '%s' "${pay_currency}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
-  [[ -n "${pay_currency}" ]] || pay_currency="usdtbsc"
+  [[ -n "${pay_currency}" ]] || pay_currency="usdttrc20"
 
   cat > .env <<EOF
 APP_URL=$(env_escape "https://${domain}")
@@ -571,8 +571,8 @@ do_install() {
   api_key="$(read_secret "  API Key: ")"
   ipn_secret="$(read_secret "  IPN Secret: ")"
   echo "  ${C_DIM}Pay coin/network for donors (must be enabled + wallet in NOWPayments)${C_RESET}"
-  read -r -p "  Pay currency [usdtbsc]: " pay_currency
-  pay_currency="${pay_currency:-usdtbsc}"
+  read -r -p "  Pay currency [usdttrc20]: " pay_currency
+  pay_currency="${pay_currency:-usdttrc20}"
 
   allow_demo="false"
   if [[ -z "${api_key}" || -z "${ipn_secret}" ]]; then
@@ -605,7 +605,7 @@ do_install() {
   echo "  Domain:     ${domain}"
   echo "  SSL email:  ${acme_email}"
   echo "  Admin:      https://${domain}/${admin_path}/login"
-  echo "  Payments:   ${mode} / ${pay_currency:-usdtbsc}"
+  echo "  Payments:   ${mode} / ${pay_currency:-usdttrc20}"
   echo "  Telegram:   $([[ -n "${tg_token}" ]] && echo set || echo skip)"
   echo
   read -r -p "  Proceed with install? [Y/n]: " go
@@ -749,8 +749,8 @@ do_settings() {
   api_key="${api_key:-${NOWPAYMENTS_API_KEY-}}"
   ipn_secret="$(read_secret "  IPN Secret (Enter = keep): ")"
   ipn_secret="${ipn_secret:-${NOWPAYMENTS_IPN_SECRET-}}"
-  read -r -p "  Pay currency [${NOWPAYMENTS_PAY_CURRENCY:-usdtbsc}]: " pay_currency
-  pay_currency="${pay_currency:-${NOWPAYMENTS_PAY_CURRENCY:-usdtbsc}}"
+  read -r -p "  Pay currency [${NOWPAYMENTS_PAY_CURRENCY:-usdttrc20}]: " pay_currency
+  pay_currency="${pay_currency:-${NOWPAYMENTS_PAY_CURRENCY:-usdttrc20}}"
 
   allow_demo="false"
   if [[ -z "${api_key}" || -z "${ipn_secret}" ]]; then
@@ -933,7 +933,7 @@ do_uninstall() {
 
 # ── menu ────────────────────────────────────────────────
 
-INSTALLER_VERSION="2026.09.15s"
+INSTALLER_VERSION="2026.09.15t"
 
 print_menu() {
   clear_screen
