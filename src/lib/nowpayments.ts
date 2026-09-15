@@ -1,13 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { USDTBSC_SOFT_PREFER_MIN_USDT } from "@/lib/donation-limits";
 
-/**
- * Invoice price denomination sent to NOWPayments.
- * Must be an allowed *price* currency on the merchant account.
- * Many accounts (including typical USDT-payout setups) reject `usdt` as
- * price_currency — hosted Confirm then fails with:
- * "Price currency USDT is not allowed." Use fiat `usd` like PasarGuard.
- * Donors still pay in crypto (prefer USDT BEP20); ~1 USDT ≈ 1 USD.
- */
+/** Invoice price denomination — fiat usd (merchant often rejects usdt as price). */
 export const PRICE_CURRENCY = "usd" as const;
 
 /** Soft-preferred pay coin on hosted checkout (BEP20 / BSC). */
@@ -133,10 +127,55 @@ async function postNowPayments(
   return { response, raw };
 }
 
+async function fetchMinAmountUsd(
+  apiKey: string,
+  payCurrency: string,
+): Promise<number | null> {
+  try {
+    const url = `${apiBase()}/v1/min-amount?currency_from=${encodeURIComponent(
+      PRICE_CURRENCY,
+    )}&currency_to=${encodeURIComponent(payCurrency)}&fiat_equivalent=usd`;
+    const response = await fetch(url, {
+      headers: { "x-api-key": apiKey },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const raw = (await response.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null;
+    const min = Number(raw?.fiat_equivalent ?? raw?.min_amount);
+    return Number.isFinite(min) && min > 0 ? min : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Soft-prefer a pay coin only when the donation clears that coin's network min.
+ * Below the floor, omit pay_currency so Confirm works with other networks.
+ */
+export async function resolvePreferredPayCurrencyForAmount(
+  apiKey: string,
+  amount: number,
+): Promise<string | undefined> {
+  const preferred = resolvePayCurrency();
+  if (!preferred) return undefined;
+
+  // For USDT BEP20, skip soft-prefer on small amounts (Confirm would 400).
+  if (preferred === "usdtbsc" || preferred === "usdtbep20") {
+    const liveMin = await fetchMinAmountUsd(apiKey, "usdtbsc");
+    const floor = liveMin ?? USDTBSC_SOFT_PREFER_MIN_USDT;
+    if (amount + 1e-9 < floor) return undefined;
+  }
+
+  return preferred;
+}
+
 /**
  * Hosted NOWPayments checkout (like PasarGuard donate):
  * create invoice priced in USD and redirect to invoice_url.
- * Soft-prefer pay_currency (default usdtbsc); donor can change coin.
+ * Soft-prefer pay_currency when amount clears that network's minimum.
  */
 export async function createNowPaymentsInvoice(
   input: CreateInvoiceInput,
@@ -168,9 +207,10 @@ export async function createNowPaymentsInvoice(
     ? `Donation from ${trimmedName}`
     : `Anonymous donation ${input.orderId}`;
   const amount = Number(input.amount.toFixed(8));
-  // Soft preference only (not a hard lock). Opens hosted UI on USDTBSC first so
-  // donors don't land on temporarily-unavailable coins like BTC.
-  const preferredPay = resolvePayCurrency();
+  const preferredPay = await resolvePreferredPayCurrencyForAmount(
+    apiKey,
+    amount,
+  );
 
   const baseInvoice = {
     price_amount: amount,
@@ -184,11 +224,13 @@ export async function createNowPaymentsInvoice(
     cancel_url: input.cancelUrl,
   };
 
-  const attempts: Array<Record<string, unknown>> = [
-    { ...baseInvoice, pay_currency: preferredPay },
-    // Fallback: open gateway without preferred coin if usdtbsc is disabled.
-    { ...baseInvoice },
-  ];
+  const attempts: Array<Record<string, unknown>> = preferredPay
+    ? [
+        { ...baseInvoice, pay_currency: preferredPay },
+        // Fallback: open gateway without preferred coin if usdtbsc is disabled.
+        { ...baseInvoice },
+      ]
+    : [{ ...baseInvoice }];
 
   const errors: string[] = [];
   for (const payload of attempts) {
