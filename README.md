@@ -10,7 +10,7 @@ One line (works if already installed — pulls latest `main`):
 cd ~; [ -d DonatePage/.git ] || git clone https://github.com/Mrclocks/DonatePage.git DonatePage; cd DonatePage; [ -f Caddyfile.local ] || { [ -f Caddyfile ] && ! grep -q '{$DOMAIN' Caddyfile 2>/dev/null && cp Caddyfile Caddyfile.local; true; }; git fetch origin main && git reset --hard origin/main && bash install.sh
 ```
 
-Correct menu shows: **Installer · Manager** and version `2026.09.15n`  
+Correct menu shows: **Installer · Manager** and version `2026.09.15o`  
 If you still see old `Ubuntu Menu` / `Diagnose 503`, you are on the old script.
 
 | Key | Action |
