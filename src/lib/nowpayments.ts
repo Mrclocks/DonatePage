@@ -126,15 +126,12 @@ async function postNowPayments(
   return { response, raw };
 }
 
-async function fetchMinAmountUsd(
+async function nowPaymentsGet(
   apiKey: string,
-  payCurrency: string,
-): Promise<number | null> {
+  pathWithQuery: string,
+): Promise<Record<string, unknown> | null> {
   try {
-    const url = `${apiBase()}/v1/min-amount?currency_from=${encodeURIComponent(
-      PRICE_CURRENCY,
-    )}&currency_to=${encodeURIComponent(payCurrency)}&fiat_equivalent=usd`;
-    const response = await fetch(url, {
+    const response = await fetch(`${apiBase()}${pathWithQuery}`, {
       headers: { "x-api-key": apiKey },
       cache: "no-store",
     });
@@ -143,17 +140,64 @@ async function fetchMinAmountUsd(
       string,
       unknown
     > | null;
-    const min = Number(raw?.fiat_equivalent ?? raw?.min_amount);
-    return Number.isFinite(min) && min > 0 ? min : null;
+    return raw && typeof raw === "object" ? raw : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Soft-prefer pay coin. If NOWPayments reports a live min for that coin and
- * the donation is below it, omit pay_currency so Confirm is not forced onto
- * an under-min pair. Never invent a hardcoded USD floor — mins are dynamic.
+ * True only when estimated crypto for this USD amount is safely above the
+ * live network minimum. If estimate/min cannot be loaded, return false so we
+ * do NOT force pay_currency (that is what breaks $1–$5 on USDT BSC while
+ * other donate pages still work — they leave coin unlocked).
+ */
+async function canSoftPreferPayCurrency(
+  apiKey: string,
+  amountUsd: number,
+  payCurrency: string,
+): Promise<boolean> {
+  const estimate = await nowPaymentsGet(
+    apiKey,
+    `/v1/estimate?amount=${encodeURIComponent(String(amountUsd))}&currency_from=${encodeURIComponent(
+      PRICE_CURRENCY,
+    )}&currency_to=${encodeURIComponent(payCurrency)}`,
+  );
+  const estimatedCrypto = Number(estimate?.estimated_amount);
+  if (!Number.isFinite(estimatedCrypto) || estimatedCrypto <= 0) return false;
+
+  // Mono-currency min in the pay coin (same units as estimated_amount).
+  const minSame = await nowPaymentsGet(
+    apiKey,
+    `/v1/min-amount?currency_from=${encodeURIComponent(
+      payCurrency,
+    )}&currency_to=${encodeURIComponent(payCurrency)}&fiat_equivalent=usd`,
+  );
+  const minCrypto = Number(minSame?.min_amount);
+  if (Number.isFinite(minCrypto) && minCrypto > 0) {
+    // Buffer: hosted Confirm can quote slightly under the UI amount (fees).
+    return estimatedCrypto >= minCrypto * 1.05;
+  }
+
+  // Fallback: USD-denominated min for usd → pay coin.
+  const minFiat = await nowPaymentsGet(
+    apiKey,
+    `/v1/min-amount?currency_from=${encodeURIComponent(
+      PRICE_CURRENCY,
+    )}&currency_to=${encodeURIComponent(payCurrency)}&fiat_equivalent=usd`,
+  );
+  const minUsd = Number(minFiat?.fiat_equivalent ?? minFiat?.min_amount);
+  if (Number.isFinite(minUsd) && minUsd > 0) {
+    return amountUsd >= minUsd * 1.05;
+  }
+
+  return false;
+}
+
+/**
+ * Soft-prefer pay coin only when we know the amount clears that coin's live
+ * minimum. If unsure, omit pay_currency — other donate pages work at $1
+ * because they do not lock the payer onto USDT BSC under-min.
  */
 export async function resolvePreferredPayCurrencyForAmount(
   apiKey: string,
@@ -164,12 +208,9 @@ export async function resolvePreferredPayCurrencyForAmount(
 
   const payTicker =
     preferred === "usdtbep20" || preferred === "bep20" ? "usdtbsc" : preferred;
-  const liveMin = await fetchMinAmountUsd(apiKey, payTicker);
-  if (liveMin != null && amount + 1e-9 < liveMin) {
-    return undefined;
-  }
 
-  return preferred;
+  const ok = await canSoftPreferPayCurrency(apiKey, amount, payTicker);
+  return ok ? preferred : undefined;
 }
 
 /**
