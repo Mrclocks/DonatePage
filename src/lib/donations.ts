@@ -40,7 +40,8 @@ export function getDonateTarget(targetId?: number | null) {
     if (row.status === "active") return row;
     return null;
   }
-  return getGeneralTarget() || getActiveCampaigns()[0] || null;
+  // Prefer newest active campaign when no explicit target is chosen.
+  return getActiveCampaigns()[0] || getGeneralTarget() || null;
 }
 
 export function listTargets() {
@@ -380,10 +381,12 @@ export function getRecentDonations(limit = 8) {
 export function getPublicPageData() {
   getDb(); // ensures general target exists
   const general = getGeneralTarget();
+  // Newest active campaign first (ordered by id desc in getActiveCampaigns).
   const campaigns = getActiveCampaigns();
+  // When campaigns exist, list them above general so the latest is default.
   const destinations = [
-    ...(general ? [general] : []),
     ...campaigns,
+    ...(general ? [general] : []),
   ];
   const topDonors = getTopDonors(10);
   const recentDonations = getRecentDonations(8);

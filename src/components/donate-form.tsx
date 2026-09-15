@@ -33,8 +33,10 @@ export function DonateForm({
   defaultTargetId?: number | null;
   canceled?: boolean;
 }) {
+  // Prefer latest active campaign when present; fall back to general.
   const initialId =
     defaultTargetId ??
+    destinations.find((d) => d.kind === "campaign")?.id ??
     destinations.find((d) => d.kind === "general")?.id ??
     destinations[0]?.id ??
     null;
