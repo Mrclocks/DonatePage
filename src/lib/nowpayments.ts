@@ -159,13 +159,15 @@ export async function createNowPaymentsInvoice(
     ? `Donation from ${input.donorName}`
     : `Donation ${input.orderId}`;
   const amount = Number(input.amount.toFixed(8));
+  // Soft preference only (not a hard lock). Opens hosted UI on USDTBSC first so
+  // donors don't land on temporarily-unavailable coins like BTC.
+  const preferredPay = resolvePayCurrency();
 
-  // No pay_currency: donor picks any enabled coin on NOWPayments hosted UI
-  // (same pattern as typical donation pages).
   const attempts: Array<Record<string, unknown>> = [
     {
       price_amount: amount,
       price_currency: PRICE_CURRENCY,
+      pay_currency: preferredPay,
       order_id: input.orderId,
       order_description: description,
       ipn_callback_url: input.ipnCallbackUrl,
@@ -175,6 +177,17 @@ export async function createNowPaymentsInvoice(
     {
       price_amount: amount,
       price_currency: "usd",
+      pay_currency: preferredPay,
+      order_id: input.orderId,
+      order_description: description,
+      ipn_callback_url: input.ipnCallbackUrl,
+      success_url: input.successUrl,
+      cancel_url: input.cancelUrl,
+    },
+    // Last resort: no preferred coin (donor chooses freely).
+    {
+      price_amount: amount,
+      price_currency: PRICE_CURRENCY,
       order_id: input.orderId,
       order_description: description,
       ipn_callback_url: input.ipnCallbackUrl,
@@ -203,6 +216,7 @@ export async function createNowPaymentsInvoice(
       checkoutUrl: invoiceUrl,
       providerPaymentId: invoiceId,
       payAmount: amount,
+      payCurrency: preferredPay,
       raw,
     };
   }
