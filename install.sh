@@ -7,6 +7,9 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/Mrclocks/DonatePage.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 DEFAULT_DIR="${INSTALL_DIR:-$HOME/DonatePage}"
+# Prebuilt app image (CI publishes on main). Install pulls this instead of
+# compiling Next.js on the VPS whenever possible.
+APP_IMAGE_DEFAULT="${APP_IMAGE:-ghcr.io/mrclocks/donatepage:latest}"
 
 # ── colors ──────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -129,8 +132,72 @@ install_docker() {
   ok "Docker installed"
 }
 
+# Small VPS often OOM during `next build`. Temporary swap prevents that.
+ensure_build_swap() {
+  local mem_kb swap_kb need_mb=2048
+  mem_kb="$(awk '/MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+  swap_kb="$(awk '/SwapTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+
+  # Already enough RAM or enough swap
+  if [[ "${mem_kb}" -ge 2500000 ]]; then
+    return 0
+  fi
+  if [[ "${swap_kb}" -ge 1500000 ]]; then
+    ok "Swap already present"
+    return 0
+  fi
+
+  info "Low RAM detected — adding ${need_mb}MB swap for build safety..."
+  if [[ -f /swapfile-donate ]]; then
+    need_root swapon /swapfile-donate 2>/dev/null || true
+    ok "Existing swap enabled"
+    return 0
+  fi
+
+  need_root fallocate -l "${need_mb}M" /swapfile-donate 2>/dev/null \
+    || need_root dd if=/dev/zero of=/swapfile-donate bs=1M count="${need_mb}" status=none
+  need_root chmod 600 /swapfile-donate
+  need_root mkswap /swapfile-donate
+  need_root swapon /swapfile-donate
+  ok "Swap ready (${need_mb}MB)"
+}
+
+# Prefer pulling the CI image. Only compile on the server as fallback.
+deploy_app_stack() {
+  local mode="${1:-up}" # up | update
+  export APP_IMAGE="${APP_IMAGE_DEFAULT}"
+
+  info "Trying prebuilt image: ${APP_IMAGE}"
+  if compose pull app; then
+    ok "Prebuilt image downloaded — no compile on this server"
+    if [[ "${mode}" == "update" ]]; then
+      compose up -d --no-deps --force-recreate --remove-orphans --no-build app
+      if ! compose ps 2>/dev/null | grep -Eiq 'caddy[[:space:]].*(running|up)'; then
+        compose up -d --no-build caddy
+      fi
+    else
+      compose up -d --remove-orphans --no-build
+    fi
+    return 0
+  fi
+
+  warn "Prebuilt image unavailable — building locally (slower, needs RAM/swap)."
+  ensure_build_swap
+  info "Building slim app image (standalone Next.js)..."
+  if [[ "${mode}" == "update" ]]; then
+    compose build app
+    compose up -d --no-deps --force-recreate --remove-orphans app
+    if ! compose ps 2>/dev/null | grep -Eiq 'caddy[[:space:]].*(running|up)'; then
+      compose up -d caddy
+    fi
+  else
+    compose up -d --build --remove-orphans
+  fi
+}
+
 prepare_data_dir() {
   mkdir -p data backups
+  # Container runs as uid 1001; keep data writable from host + container.
   chmod 777 data 2>/dev/null || true
 }
 
@@ -548,8 +615,8 @@ do_install() {
   write_caddy_local "${domain}" "${acme_email}"
 
   echo
-  info "Building (first time can take a few minutes)..."
-  compose up -d --build --remove-orphans
+  info "Deploying stack (pull prebuilt image when available)..."
+  deploy_app_stack up
 
   if ! wait_for_app; then
     err "Install finished but app is unhealthy."
@@ -607,21 +674,7 @@ do_update() {
   fi
 
   prepare_data_dir
-  info "Building app image (cached layers skip when possible)..."
-  if ! compose build app; then
-    err "Build failed."
-    pause
-    return 1
-  fi
-
-  info "Restarting app (Caddy stays up)..."
-  compose up -d --no-deps --force-recreate --remove-orphans app
-
-  # Start caddy if it isn't running (first update after migration, etc.)
-  if ! compose ps 2>/dev/null | grep -Eiq 'caddy[[:space:]].*(running|up)'; then
-    info "Starting Caddy..."
-    compose up -d caddy
-  fi
+  deploy_app_stack update
 
   if wait_for_app; then
     ok "Update complete"
@@ -718,8 +771,9 @@ do_settings() {
     "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}" "${acme_email}"
   write_caddy_local "${domain}" "${acme_email}"
 
-  info "Applying settings (no image rebuild)..."
+  info "Applying settings (no app rebuild)..."
   prepare_data_dir
+  export APP_IMAGE="${APP_IMAGE_DEFAULT}"
   compose up -d --force-recreate --no-build --remove-orphans
   wait_for_app || true
   if [[ "${domain}" != "${cur}" ]]; then
@@ -869,7 +923,7 @@ do_uninstall() {
 
 # ── menu ────────────────────────────────────────────────
 
-INSTALLER_VERSION="2026.09.15"
+INSTALLER_VERSION="2026.09.15b"
 
 print_menu() {
   clear_screen
@@ -888,8 +942,8 @@ ${C_ORANGE}${C_BOLD}
 ${C_DIM}  script ${INSTALLER_VERSION}${ver:+ · git ${ver}}${C_RESET}
 
   ${C_GREEN}●${C_RESET}  Main
-     ${C_CYAN}1${C_RESET}   Install / reinstall   ${C_DIM}domain · SSL · payments${C_RESET}
-     ${C_CYAN}2${C_RESET}   Update                ${C_DIM}app only · SSL stays up${C_RESET}
+     ${C_CYAN}1${C_RESET}   Install / reinstall   ${C_DIM}pull image · auto SSL${C_RESET}
+     ${C_CYAN}2${C_RESET}   Update                ${C_DIM}pull image · SSL stays up${C_RESET}
      ${C_CYAN}3${C_RESET}   Settings              ${C_DIM}no rebuild${C_RESET}
 
   ${C_GREEN}●${C_RESET}  Monitor

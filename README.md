@@ -10,13 +10,13 @@ One line (works if already installed — pulls latest `main`):
 cd ~; [ -d DonatePage/.git ] || git clone https://github.com/Mrclocks/DonatePage.git DonatePage; cd DonatePage; [ -f Caddyfile.local ] || { [ -f Caddyfile ] && ! grep -q '{$DOMAIN' Caddyfile 2>/dev/null && cp Caddyfile Caddyfile.local; true; }; git fetch origin main && git reset --hard origin/main && bash install.sh
 ```
 
-Correct menu shows: **Installer · Manager** and version `2026.09.15`  
+Correct menu shows: **Installer · Manager** and version `2026.09.15b`  
 If you still see old `Ubuntu Menu` / `Diagnose 503`, you are on the old script.
 
 | Key | Action |
 |-----|--------|
 | 1 | Install (domain · SSL · payments) |
-| 2 | Update (fast) |
+| 2 | Update (pull prebuilt image) |
 | 3 | Settings |
 | 4 | Status |
 | 5 | Logs |
@@ -27,6 +27,12 @@ If you still see old `Ubuntu Menu` / `Diagnose 503`, you are on the old script.
 Ports: **80**, **443** (Caddy auto-issues Let's Encrypt)
 
 Survives updates: `data/`, `.env`, `Caddyfile.local`, TLS volume
+
+### How deploy works
+
+1. **Prefer prebuilt image** from `ghcr.io/mrclocks/donatepage:latest` (built by GitHub Actions — no Next.js compile on your VPS)
+2. If the image is missing, fall back to a **slim local build** (`node:22-bookworm-slim` + Next standalone) and auto-add swap on low-RAM servers
+3. Caddy handles HTTPS
 
 ### What Install asks for
 
@@ -46,3 +52,4 @@ After install: open admin → set targets. Paste the printed IPN URL into the NO
 - `NOWPAYMENTS_IPN_SECRET` — IPN HMAC-SHA512 secret
 - `NOWPAYMENTS_API_BASE` — default `https://api.nowpayments.io`
 - `NOWPAYMENTS_ALLOW_DEMO` — must be `true` to allow demo checkout in production (not recommended)
+- `APP_IMAGE` — optional override for the app container image
