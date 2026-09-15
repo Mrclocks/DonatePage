@@ -410,9 +410,12 @@ write_env_file() {
   local tg_chat="$9"
   local admin_path="${10:-admin}"
   local acme_email="${11-}"
+  local pay_currency="${12:-usdttrc20}"
 
   admin_path="$(printf '%s' "${admin_path}" | tr -cd 'A-Za-z0-9-_')"
   [[ -n "${admin_path}" ]] || admin_path="admin"
+  pay_currency="$(printf '%s' "${pay_currency}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
+  [[ -n "${pay_currency}" ]] || pay_currency="usdttrc20"
 
   cat > .env <<EOF
 APP_URL=$(env_escape "https://${domain}")
@@ -425,6 +428,7 @@ NOWPAYMENTS_MODE=$(env_escape "${mode}")
 NOWPAYMENTS_ALLOW_DEMO=$(env_escape "${allow_demo}")
 NOWPAYMENTS_API_KEY=$(env_escape "${api_key}")
 NOWPAYMENTS_IPN_SECRET=$(env_escape "${ipn_secret}")
+NOWPAYMENTS_PAY_CURRENCY=$(env_escape "${pay_currency}")
 NOWPAYMENTS_API_BASE=$(env_escape "https://api.nowpayments.io")
 TELEGRAM_BOT_TOKEN=$(env_escape "${tg_token}")
 TELEGRAM_CHAT_ID=$(env_escape "${tg_chat}")
@@ -494,8 +498,9 @@ print_post_install() {
   echo
   echo "  ${C_BOLD}Next step${C_RESET}"
   echo "    1. Open admin → set donation targets"
-  echo "    2. In NOWPayments dashboard → set IPN callback to the URL above"
-  echo "    3. Make a small live test donation"
+  echo "    2. In NOWPayments: enable USDT (TRC20) + add payout wallet"
+  echo "    3. Paste the IPN URL above into NOWPayments IPN settings"
+  echo "    4. Make a small live test donation"
   echo
 }
 
@@ -515,7 +520,7 @@ do_install() {
   install_docker
 
   local domain acme_email admin_password api_key ipn_secret tg_token tg_chat
-  local mode allow_demo session_secret admin_path
+  local mode allow_demo session_secret admin_path pay_currency
 
   # ── Domain & SSL ──────────────────────────────────────
   section "1 · Domain & SSL"
@@ -565,6 +570,9 @@ do_install() {
   echo "  ${C_DIM}https://${domain}/api/webhook/nowpayments${C_RESET}"
   api_key="$(read_secret "  API Key: ")"
   ipn_secret="$(read_secret "  IPN Secret: ")"
+  echo "  ${C_DIM}Pay coin/network for donors (must be enabled + wallet in NOWPayments)${C_RESET}"
+  read -r -p "  Pay currency [usdttrc20]: " pay_currency
+  pay_currency="${pay_currency:-usdttrc20}"
 
   allow_demo="false"
   if [[ -z "${api_key}" || -z "${ipn_secret}" ]]; then
@@ -597,7 +605,7 @@ do_install() {
   echo "  Domain:     ${domain}"
   echo "  SSL email:  ${acme_email}"
   echo "  Admin:      https://${domain}/${admin_path}/login"
-  echo "  Payments:   ${mode}"
+  echo "  Payments:   ${mode} / ${pay_currency:-usdttrc20}"
   echo "  Telegram:   $([[ -n "${tg_token}" ]] && echo set || echo skip)"
   echo
   read -r -p "  Proceed with install? [Y/n]: " go
@@ -611,7 +619,7 @@ do_install() {
   session_secret="$(openssl rand -hex 32)"
   prepare_data_dir
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}" "${acme_email}"
+    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}" "${acme_email}" "${pay_currency}"
   write_caddy_local "${domain}" "${acme_email}"
 
   echo
@@ -696,7 +704,7 @@ do_settings() {
   load_env || { err "No .env — run Install first."; pause; return 1; }
 
   local domain admin_password api_key ipn_secret tg_token tg_chat acme_email
-  local mode allow_demo admin_path session_secret
+  local mode allow_demo admin_path session_secret pay_currency
   local cur
   cur="$(current_domain)"
 
@@ -741,6 +749,8 @@ do_settings() {
   api_key="${api_key:-${NOWPAYMENTS_API_KEY-}}"
   ipn_secret="$(read_secret "  IPN Secret (Enter = keep): ")"
   ipn_secret="${ipn_secret:-${NOWPAYMENTS_IPN_SECRET-}}"
+  read -r -p "  Pay currency [${NOWPAYMENTS_PAY_CURRENCY:-usdttrc20}]: " pay_currency
+  pay_currency="${pay_currency:-${NOWPAYMENTS_PAY_CURRENCY:-usdttrc20}}"
 
   allow_demo="false"
   if [[ -z "${api_key}" || -z "${ipn_secret}" ]]; then
@@ -768,7 +778,7 @@ do_settings() {
 
   session_secret="${SESSION_SECRET:-$(openssl rand -hex 32)}"
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}" "${acme_email}"
+    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}" "${acme_email}" "${pay_currency}"
   write_caddy_local "${domain}" "${acme_email}"
 
   info "Applying settings (no app rebuild)..."
@@ -923,7 +933,7 @@ do_uninstall() {
 
 # ── menu ────────────────────────────────────────────────
 
-INSTALLER_VERSION="2026.09.15c"
+INSTALLER_VERSION="2026.09.15d"
 
 print_menu() {
   clear_screen
