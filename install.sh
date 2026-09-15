@@ -933,7 +933,7 @@ do_uninstall() {
 
 # ── menu ────────────────────────────────────────────────
 
-INSTALLER_VERSION="2026.09.15r"
+INSTALLER_VERSION="2026.09.15s"
 
 print_menu() {
   clear_screen
