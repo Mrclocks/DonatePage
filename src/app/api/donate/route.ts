@@ -8,6 +8,10 @@ import {
   updateDonationProvider,
 } from "@/lib/donations";
 import {
+  MAX_DONATION_USDT,
+  MIN_DONATION_USDT,
+} from "@/lib/donation-limits";
+import {
   assertLiveConfigured,
   createNowPaymentsInvoice,
 } from "@/lib/nowpayments";
@@ -16,7 +20,10 @@ import { clientIp, rateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
 const schema = z.object({
-  amount: z.number().positive().max(1_000_000),
+  amount: z
+    .number()
+    .min(MIN_DONATION_USDT)
+    .max(MAX_DONATION_USDT),
   donorName: z.string().trim().max(80).optional().nullable(),
   targetId: z.number().int().positive().optional().nullable(),
 });
@@ -46,6 +53,15 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
+    const amountIssue = parsed.error.issues.find((i) => i.path[0] === "amount");
+    if (amountIssue) {
+      return NextResponse.json(
+        {
+          error: `حداقل مبلغ حمایت ${MIN_DONATION_USDT} USDT است (محدودیت شبکه NOWPayments)`,
+        },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ error: "اطلاعات نامعتبر است" }, { status: 400 });
   }
 

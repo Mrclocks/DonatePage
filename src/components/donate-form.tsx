@@ -8,9 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tag } from "@/components/ui/tag";
+import {
+  DEFAULT_DONATION_USDT,
+  DONATION_AMOUNT_PRESETS,
+  MIN_DONATION_USDT,
+} from "@/lib/donation-limits";
 import { clampPercent, cn, formatMoney } from "@/lib/utils";
-
-const PRESETS = [5, 10, 25];
 
 export type DonateDestination = {
   id: number;
@@ -37,7 +40,7 @@ export function DonateForm({
     null;
 
   const [targetId, setTargetId] = useState<number | null>(initialId);
-  const [amount, setAmount] = useState<string>("25");
+  const [amount, setAmount] = useState<string>(String(DEFAULT_DONATION_USDT));
   const [donorName, setDonorName] = useState("");
   const [customMode, setCustomMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +57,10 @@ export function DonateForm({
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
       setError("مبلغ معتبر وارد کنید");
+      return;
+    }
+    if (amountNumber < MIN_DONATION_USDT) {
+      setError(`حداقل مبلغ حمایت ${MIN_DONATION_USDT} USDT است`);
       return;
     }
 
@@ -272,8 +279,11 @@ export function DonateForm({
 
       <div className="flex flex-col gap-2">
         <Label>مبلغ</Label>
+        <p className="text-xs leading-5 text-slate-500">
+          حداقل {MIN_DONATION_USDT} USDT (محدودیت شبکه پرداخت)
+        </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {PRESETS.map((value) => (
+          {DONATION_AMOUNT_PRESETS.map((value) => (
             <button
               key={value}
               type="button"
@@ -300,9 +310,9 @@ export function DonateForm({
                 ? "border-orange-400 bg-orange-500/15 text-orange-200"
                 : "border-white/12 bg-white/5 text-slate-200 hover:bg-white/8",
             )}
-            >
-              سایر
-            </button>
+          >
+            سایر
+          </button>
         </div>
       </div>
 
@@ -316,7 +326,7 @@ export function DonateForm({
             setCustomMode(true);
             setAmount(e.target.value);
           }}
-          placeholder="مثلاً 40"
+          placeholder={`حداقل ${MIN_DONATION_USDT}`}
         />
       </div>
 
@@ -326,7 +336,7 @@ export function DonateForm({
           id="name"
           value={donorName}
           onChange={(e) => setDonorName(e.target.value)}
-          placeholder="ناشناس"
+          placeholder="می‌توانید خالی بگذارید — ناشناس"
         />
       </div>
 
