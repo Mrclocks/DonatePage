@@ -282,8 +282,7 @@ export function DonateForm({
       <div className="flex flex-col gap-2">
         <Label>مبلغ</Label>
         <p className="text-xs leading-5 text-slate-500">
-          حداقل {MIN_DONATION_USDT} USDT — در درگاه می‌توانید ارز/شبکه را خودتان
-          انتخاب کنید
+          حداقل {MIN_DONATION_USDT} USDT (حداقل شبکه روی اکانت NOWPayments شما)
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {DONATION_AMOUNT_PRESETS.map((value) => (

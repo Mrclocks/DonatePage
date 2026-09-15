@@ -3,8 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /** Invoice price denomination — fiat usd (merchant often rejects usdt as price). */
 export const PRICE_CURRENCY = "usd" as const;
 
-/** Soft-preferred pay coin on hosted checkout (BEP20 / BSC). */
-export const DEFAULT_PAY_CURRENCY = "usdtbsc" as const;
+/** Preferred pay coin on hosted checkout — USDT on Tron (lower fees than BSC). */
+export const DEFAULT_PAY_CURRENCY = "usdttrc20" as const;
 
 export type CreateInvoiceInput = {
   orderId: string;
@@ -84,7 +84,10 @@ export function assertLiveConfigured() {
 function configuredPayCurrency() {
   const raw = process.env.NOWPAYMENTS_PAY_CURRENCY?.trim().toLowerCase();
   if (!raw) return "";
-  // Common alias users type for Binance Smart Chain USDT.
+  // Common aliases for Tron / BSC USDT.
+  if (raw === "usdttrc20" || raw === "trc20" || raw === "usdt-trc20" || raw === "usdttron") {
+    return "usdttrc20";
+  }
   if (raw === "usdtbep20" || raw === "bep20" || raw === "usdt-bep20") {
     return "usdtbsc";
   }
@@ -127,10 +130,10 @@ async function postNowPayments(
 }
 
 /**
- * Hosted NOWPayments checkout like working donate pages (e.g. PasarGuard):
- * price in USD, leave pay_currency unset so the gateway shows Choose asset.
- * Locking pay_currency=usdtbsc makes Confirm auto-fail under that network's
- * live minimum (page stuck on Key things / email only).
+ * Hosted NOWPayments checkout: price in USD, open on USDT TRC20 by default
+ * (merchant payout wallet). App minimum must stay at/above this account's
+ * live network floor (~$15 verified); under that, Confirm returns
+ * "Crypto amount … is less than minimal" for BTC/TRC20/BSC alike.
  */
 export async function createNowPaymentsInvoice(
   input: CreateInvoiceInput,
@@ -162,13 +165,12 @@ export async function createNowPaymentsInvoice(
     ? `Donation from ${trimmedName}`
     : `Anonymous donation ${input.orderId}`;
   const amount = Number(input.amount.toFixed(8));
+  const preferredPay = resolvePayCurrency();
 
-  const payload: Record<string, unknown> = {
+  const baseInvoice = {
     price_amount: amount,
     // Do NOT use price_currency=usdt — Confirm fails: "Price currency USDT is not allowed".
     price_currency: PRICE_CURRENCY,
-    // Do NOT set pay_currency — must stay null like PasarGuard or Confirm locks
-    // onto USDTBSC and dies under that pair's minimum.
     order_id: input.orderId,
     order_description: description,
     ipn_callback_url: input.ipnCallbackUrl,
@@ -176,26 +178,38 @@ export async function createNowPaymentsInvoice(
     cancel_url: input.cancelUrl,
   };
 
-  const { response, raw } = await postNowPayments(apiKey, "/v1/invoice", payload);
-  if (!response.ok) {
-    throw new Error(extractNowPaymentsError(raw, response.status));
+  const attempts: Array<Record<string, unknown>> = [
+    { ...baseInvoice, pay_currency: preferredPay },
+    // Fallback: unlocked coin picker if preferred ticker is disabled on the account.
+    { ...baseInvoice },
+  ];
+
+  const errors: string[] = [];
+  for (const payload of attempts) {
+    const { response, raw } = await postNowPayments(apiKey, "/v1/invoice", payload);
+    if (!response.ok) {
+      errors.push(extractNowPaymentsError(raw, response.status));
+      continue;
+    }
+
+    const data = raw as Record<string, unknown>;
+    const invoiceId =
+      data.id != null && String(data.id) !== "" ? String(data.id) : "";
+    const invoiceUrl = String(data.invoice_url || "").trim();
+    if (!invoiceId || !invoiceUrl) {
+      throw new Error("NOWPayments response missing invoice_url");
+    }
+
+    return {
+      checkoutUrl: invoiceUrl,
+      providerPaymentId: invoiceId,
+      payAmount: amount,
+      payCurrency: "pay_currency" in payload ? preferredPay : undefined,
+      raw,
+    };
   }
 
-  const data = raw as Record<string, unknown>;
-  const invoiceId =
-    data.id != null && String(data.id) !== "" ? String(data.id) : "";
-  const invoiceUrl = String(data.invoice_url || "").trim();
-  if (!invoiceId || !invoiceUrl) {
-    throw new Error("NOWPayments response missing invoice_url");
-  }
-
-  return {
-    checkoutUrl: invoiceUrl,
-    providerPaymentId: invoiceId,
-    payAmount: amount,
-    payCurrency: undefined,
-    raw,
-  };
+  throw new Error(errors.filter(Boolean).join(" | ") || "NOWPayments invoice failed");
 }
 
 /** Recursively sort object keys (NOWPayments IPN requirement). */
