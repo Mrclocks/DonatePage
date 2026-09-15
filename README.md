@@ -10,7 +10,7 @@ One line (works if already installed — pulls latest `main`):
 cd ~; [ -d DonatePage/.git ] || git clone https://github.com/Mrclocks/DonatePage.git DonatePage; cd DonatePage; [ -f Caddyfile.local ] || { [ -f Caddyfile ] && ! grep -q '{$DOMAIN' Caddyfile 2>/dev/null && cp Caddyfile Caddyfile.local; true; }; git fetch origin main && git reset --hard origin/main && bash install.sh
 ```
 
-Correct menu shows: **Installer · Manager** and version `2026.09.15c`  
+Correct menu shows: **Installer · Manager** and version `2026.09.15d`  
 If you still see old `Ubuntu Menu` / `Diagnose 503`, you are on the old script.
 
 | Key | Action |
@@ -50,6 +50,7 @@ After install: open admin → set targets. Paste the printed IPN URL into the NO
 - `ACME_EMAIL` — Let's Encrypt contact (Caddy)
 - `NOWPAYMENTS_API_KEY` — server-only API key
 - `NOWPAYMENTS_IPN_SECRET` — IPN HMAC-SHA512 secret
+- `NOWPAYMENTS_PAY_CURRENCY` — donor pay coin/network (default `usdttrc20`)
 - `NOWPAYMENTS_API_BASE` — default `https://api.nowpayments.io`
 - `NOWPAYMENTS_ALLOW_DEMO` — must be `true` to allow demo checkout in production (not recommended)
 - `APP_IMAGE` — optional override for the app container image

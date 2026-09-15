@@ -3,6 +3,19 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /** NOWPayments invoice price denomination for this app (USDT, not fiat USD). */
 export const PRICE_CURRENCY = "usdt" as const;
 
+/** Default network for paying the USDT invoice (TRC20 = low fees). */
+export const DEFAULT_PAY_CURRENCY = "usdttrc20" as const;
+
+const USDT_PAY_PREFERENCE = [
+  "usdttrc20",
+  "usdtbsc",
+  "usdtbep20",
+  "usdterc20",
+  "usdtmatic",
+  "usdtarb",
+  "usdt",
+] as const;
+
 export type CreateInvoiceInput = {
   orderId: string;
   amount: number;
@@ -75,6 +88,51 @@ export function assertLiveConfigured() {
   }
 }
 
+function configuredPayCurrency() {
+  const raw = process.env.NOWPAYMENTS_PAY_CURRENCY?.trim().toLowerCase();
+  return raw || "";
+}
+
+/**
+ * Prefer an enabled USDT network on the merchant account so checkout does not
+ * open on BTC (or another coin that may be temporarily unavailable).
+ */
+export async function resolvePayCurrency(apiKey: string): Promise<string> {
+  const forced = configuredPayCurrency();
+  if (forced) return forced;
+
+  try {
+    const response = await fetch(`${apiBase()}/v1/merchant/coins`, {
+      method: "GET",
+      headers: { "x-api-key": apiKey },
+      cache: "no-store",
+    });
+    if (!response.ok) return DEFAULT_PAY_CURRENCY;
+
+    const raw = (await response.json().catch(() => ({}))) as {
+      selectedCoins?: unknown;
+      selectedCurrencies?: unknown;
+    };
+    const list = (raw.selectedCoins || raw.selectedCurrencies || []) as unknown;
+    const coins = Array.isArray(list)
+      ? list.map((c) => String(c).trim().toLowerCase()).filter(Boolean)
+      : [];
+
+    if (coins.length === 0) return DEFAULT_PAY_CURRENCY;
+
+    for (const preferred of USDT_PAY_PREFERENCE) {
+      if (coins.includes(preferred)) return preferred;
+    }
+
+    const anyUsdt = coins.find((c) => c.startsWith("usdt"));
+    if (anyUsdt) return anyUsdt;
+  } catch {
+    // Fall through to default.
+  }
+
+  return DEFAULT_PAY_CURRENCY;
+}
+
 export async function createNowPaymentsInvoice(
   input: CreateInvoiceInput,
 ): Promise<CreateInvoiceResult> {
@@ -98,14 +156,17 @@ export async function createNowPaymentsInvoice(
   }
 
   // Price the Hosted Invoice in USDT so the selected donation amount is the
-  // invoice amount — not a USD fiat approximation.
+  // invoice amount — not a USD fiat approximation. Lock pay_currency to a USDT
+  // network so checkout does not default to BTC.
   const description = input.donorName
     ? `Donation from ${input.donorName}`
     : `Donation ${input.orderId}`;
+  const payCurrency = await resolvePayCurrency(apiKey);
 
   const payload = {
     price_amount: Number(input.amount.toFixed(8)),
     price_currency: PRICE_CURRENCY,
+    pay_currency: payCurrency,
     order_id: input.orderId,
     order_description: description,
     ipn_callback_url: input.ipnCallbackUrl,
@@ -125,7 +186,13 @@ export async function createNowPaymentsInvoice(
 
   const raw = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`NOWPayments error (${response.status})`);
+    const message =
+      raw && typeof raw === "object" && "message" in raw
+        ? String((raw as { message?: unknown }).message || "")
+        : "";
+    throw new Error(
+      `NOWPayments error (${response.status})${message ? `: ${message}` : ""}`,
+    );
   }
 
   const data = raw as Record<string, unknown>;
@@ -266,5 +333,6 @@ export function amountsMatch(expected: number, received: number) {
 }
 
 export function priceCurrencyIsUsdt(currency: string) {
-  return currency.trim().toLowerCase() === PRICE_CURRENCY;
+  const c = currency.trim().toLowerCase();
+  return c === PRICE_CURRENCY || c.startsWith("usdt");
 }
