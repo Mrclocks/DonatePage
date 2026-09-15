@@ -205,10 +205,20 @@ export function getDonationByOrderId(orderId: string) {
 export function updateDonationProvider(
   orderId: string,
   providerPaymentId: string,
+  pay?: {
+    payAddress?: string | null;
+    payAmount?: number | null;
+    payCurrency?: string | null;
+  },
 ) {
   const db = getDb();
   db.update(donations)
-    .set({ providerPaymentId })
+    .set({
+      providerPaymentId,
+      payAddress: pay?.payAddress ?? undefined,
+      payAmount: pay?.payAmount ?? undefined,
+      payCurrency: pay?.payCurrency ?? undefined,
+    })
     .where(and(eq(donations.orderId, orderId), eq(donations.status, "pending")))
     .run();
 }

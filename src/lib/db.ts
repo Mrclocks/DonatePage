@@ -59,6 +59,19 @@ function ensureSchema(database: Database.Database) {
     );
   }
 
+  const donationCols = database
+    .prepare(`PRAGMA table_info(donations)`)
+    .all() as Array<{ name: string }>;
+  if (!donationCols.some((c) => c.name === "pay_address")) {
+    database.exec(`ALTER TABLE donations ADD COLUMN pay_address TEXT`);
+  }
+  if (!donationCols.some((c) => c.name === "pay_amount")) {
+    database.exec(`ALTER TABLE donations ADD COLUMN pay_amount REAL`);
+  }
+  if (!donationCols.some((c) => c.name === "pay_currency")) {
+    database.exec(`ALTER TABLE donations ADD COLUMN pay_currency TEXT`);
+  }
+
   const general = database
     .prepare(`SELECT id FROM targets WHERE kind = 'general' LIMIT 1`)
     .get() as { id: number } | undefined;

@@ -82,7 +82,11 @@ export async function POST(request: Request) {
     });
 
     if (payment.providerPaymentId) {
-      updateDonationProvider(orderId, payment.providerPaymentId);
+      updateDonationProvider(orderId, payment.providerPaymentId, {
+        payAddress: payment.payAddress,
+        payAmount: payment.payAmount,
+        payCurrency: payment.payCurrency,
+      });
     }
 
     return NextResponse.json({

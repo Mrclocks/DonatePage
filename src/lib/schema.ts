@@ -31,6 +31,9 @@ export const donations = sqliteTable(
     status: text("status").notNull().default("pending"), // pending | paid | failed
     orderId: text("order_id").notNull(),
     providerPaymentId: text("provider_payment_id"),
+    payAddress: text("pay_address"),
+    payAmount: real("pay_amount"),
+    payCurrency: text("pay_currency"),
     createdAt: text("created_at").notNull(),
     paidAt: text("paid_at"),
   },
