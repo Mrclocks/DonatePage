@@ -96,14 +96,24 @@ export async function POST(request: Request) {
       targetTitle: target.title,
     });
   } catch (error) {
-    console.error("donate_create_failed", {
-      orderId,
-      message: error instanceof Error ? error.message : String(error),
-    });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("donate_create_failed", { orderId, message });
     markDonationFailed(orderId);
-    return NextResponse.json(
-      { error: "ساخت پرداخت ناموفق بود" },
-      { status: 502 },
-    );
+
+    const lower = message.toLowerCase();
+    let userError = "ساخت پرداخت ناموفق بود";
+    if (lower.includes("usdtbsc") || lower.includes("currency")) {
+      userError =
+        "ارز USDTBSC در NOWPayments فعال نیست یا ولت BEP20 ست نشده";
+    } else if (lower.includes("api key") || lower.includes("unauthorized") || lower.includes("(401)")) {
+      userError = "API Key مربوط به NOWPayments نامعتبر است";
+    } else if (lower.includes("ipn") || lower.includes("secret")) {
+      userError = "تنظیمات IPN / کلیدها ناقص است";
+    } else if (message.startsWith("NOWPayments")) {
+      // Keep a short provider hint for debugging without dumping secrets.
+      userError = `ساخت پرداخت ناموفق بود — ${message.slice(0, 160)}`;
+    }
+
+    return NextResponse.json({ error: userError }, { status: 502 });
   }
 }
