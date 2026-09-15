@@ -126,37 +126,11 @@ async function postNowPayments(
   return { response, raw };
 }
 
-function paymentFromResponse(
-  raw: unknown,
-  orderId: string,
-  fallbackAmount: number,
-  fallbackPayCurrency: string,
-): CreateInvoiceResult {
-  const data = (raw || {}) as Record<string, unknown>;
-  const paymentId =
-    data.payment_id != null && String(data.payment_id) !== ""
-      ? String(data.payment_id)
-      : "";
-  const payAddress = String(data.pay_address || "").trim();
-  const payAmount = Number(data.pay_amount ?? fallbackAmount);
-  const returnedPayCurrency = String(data.pay_currency || fallbackPayCurrency)
-    .trim()
-    .toLowerCase();
-
-  if (!paymentId || !payAddress) {
-    throw new Error("NOWPayments response missing payment address");
-  }
-
-  return {
-    checkoutUrl: `/pay?order=${encodeURIComponent(orderId)}`,
-    providerPaymentId: paymentId,
-    payAddress,
-    payAmount: Number.isFinite(payAmount) ? payAmount : fallbackAmount,
-    payCurrency: returnedPayCurrency || fallbackPayCurrency,
-    raw,
-  };
-}
-
+/**
+ * Hosted NOWPayments checkout locked to USDT BEP20 (usdtbsc).
+ * Creates an invoice, locks pay currency via invoice-payment, then returns
+ * the NOWPayments invoice_url so the donor stays on their gateway UI.
+ */
 export async function createNowPaymentsInvoice(
   input: CreateInvoiceInput,
 ): Promise<CreateInvoiceResult> {
@@ -188,8 +162,7 @@ export async function createNowPaymentsInvoice(
   const payCurrency = resolvePayCurrency();
   const amount = Number(input.amount.toFixed(8));
 
-  // Direct payment — do not send invoice-only fields (success_url/cancel_url).
-  const paymentAttempts: Array<Record<string, unknown>> = [
+  const invoiceAttempts: Array<Record<string, unknown>> = [
     {
       price_amount: amount,
       price_currency: PRICE_CURRENCY,
@@ -197,8 +170,10 @@ export async function createNowPaymentsInvoice(
       order_id: input.orderId,
       order_description: description,
       ipn_callback_url: input.ipnCallbackUrl,
+      success_url: input.successUrl,
+      cancel_url: input.cancelUrl,
     },
-    // Some merchant accounts only accept fiat price_currency on /v1/payment.
+    // Some accounts only accept fiat denomination for invoices.
     {
       price_amount: amount,
       price_currency: "usd",
@@ -206,59 +181,72 @@ export async function createNowPaymentsInvoice(
       order_id: input.orderId,
       order_description: description,
       ipn_callback_url: input.ipnCallbackUrl,
+      success_url: input.successUrl,
+      cancel_url: input.cancelUrl,
     },
   ];
 
   const errors: string[] = [];
+  let invoiceRaw: Record<string, unknown> | null = null;
 
-  for (const payload of paymentAttempts) {
-    const { response, raw } = await postNowPayments(apiKey, "/v1/payment", payload);
+  for (const payload of invoiceAttempts) {
+    const { response, raw } = await postNowPayments(apiKey, "/v1/invoice", payload);
     if (response.ok) {
-      return paymentFromResponse(raw, input.orderId, amount, payCurrency);
+      invoiceRaw = raw as Record<string, unknown>;
+      break;
     }
     errors.push(extractNowPaymentsError(raw, response.status));
   }
 
-  // Fallback: invoice + invoice-payment (locks pay_currency, returns address).
-  const invoicePayload = {
-    price_amount: amount,
-    price_currency: PRICE_CURRENCY,
-    pay_currency: payCurrency,
-    order_id: input.orderId,
-    order_description: description,
-    ipn_callback_url: input.ipnCallbackUrl,
-    success_url: input.successUrl,
-    cancel_url: input.cancelUrl,
-  };
-  const invoiceRes = await postNowPayments(apiKey, "/v1/invoice", invoicePayload);
-  if (!invoiceRes.response.ok) {
-    errors.push(extractNowPaymentsError(invoiceRes.raw, invoiceRes.response.status));
-    throw new Error(errors.filter(Boolean).join(" | ") || "NOWPayments payment failed");
+  if (!invoiceRaw) {
+    throw new Error(errors.filter(Boolean).join(" | ") || "NOWPayments invoice failed");
   }
 
-  const invoiceData = invoiceRes.raw as Record<string, unknown>;
   const invoiceId =
-    invoiceData.id != null && String(invoiceData.id) !== ""
-      ? String(invoiceData.id)
+    invoiceRaw.id != null && String(invoiceRaw.id) !== ""
+      ? String(invoiceRaw.id)
       : "";
-  if (!invoiceId) {
-    throw new Error("NOWPayments invoice missing id");
+  const invoiceUrl = String(invoiceRaw.invoice_url || "").trim();
+  if (!invoiceId || !invoiceUrl) {
+    throw new Error("NOWPayments response missing invoice_url");
   }
 
+  // Lock the hosted checkout onto USDTBSC so it skips the BTC choose-asset step.
+  let payAddress: string | undefined;
+  let payAmount: number | undefined;
+  let lockedPayCurrency = payCurrency;
   const lockRes = await postNowPayments(apiKey, "/v1/invoice-payment", {
     iid: Number(invoiceId) || invoiceId,
     pay_currency: payCurrency,
     order_description: description,
   });
-  if (!lockRes.response.ok) {
-    errors.push(extractNowPaymentsError(lockRes.raw, lockRes.response.status));
-    throw new Error(
-      errors.filter(Boolean).join(" | ") ||
-        "NOWPayments could not lock USDTBSC. Enable USDTBSC + payout wallet in your NOWPayments dashboard.",
-    );
+
+  if (lockRes.response.ok) {
+    const locked = lockRes.raw as Record<string, unknown>;
+    payAddress = String(locked.pay_address || "").trim() || undefined;
+    const amountLocked = Number(locked.pay_amount);
+    if (Number.isFinite(amountLocked) && amountLocked > 0) {
+      payAmount = amountLocked;
+    }
+    lockedPayCurrency = String(locked.pay_currency || payCurrency)
+      .trim()
+      .toLowerCase();
+  } else {
+    // Still open hosted invoice with preferred pay_currency; do not hard-fail.
+    console.error("invoice_payment_lock_failed", {
+      orderId: input.orderId,
+      message: extractNowPaymentsError(lockRes.raw, lockRes.response.status),
+    });
   }
 
-  return paymentFromResponse(lockRes.raw, input.orderId, amount, payCurrency);
+  return {
+    checkoutUrl: invoiceUrl,
+    providerPaymentId: invoiceId,
+    payAddress,
+    payAmount,
+    payCurrency: lockedPayCurrency,
+    raw: { invoice: invoiceRaw, payment: lockRes.raw },
+  };
 }
 
 /** Recursively sort object keys (NOWPayments IPN requirement). */
