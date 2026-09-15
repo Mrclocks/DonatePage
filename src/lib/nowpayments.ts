@@ -6,16 +6,6 @@ export const PRICE_CURRENCY = "usdt" as const;
 /** Default network for paying the USDT invoice (BEP20 / BSC). */
 export const DEFAULT_PAY_CURRENCY = "usdtbsc" as const;
 
-const USDT_PAY_PREFERENCE = [
-  "usdtbsc",
-  "usdtbep20",
-  "usdttrc20",
-  "usdterc20",
-  "usdtmatic",
-  "usdtarb",
-  "usdt",
-] as const;
-
 export type CreateInvoiceInput = {
   orderId: string;
   amount: number;
@@ -29,6 +19,9 @@ export type CreateInvoiceInput = {
 export type CreateInvoiceResult = {
   checkoutUrl: string;
   providerPaymentId?: string;
+  payAddress?: string;
+  payAmount?: number;
+  payCurrency?: string;
   raw?: unknown;
 };
 
@@ -99,43 +92,11 @@ function configuredPayCurrency() {
 }
 
 /**
- * Prefer an enabled USDT network on the merchant account so checkout does not
- * open on BTC (or another coin that may be temporarily unavailable).
+ * Locked pay coin for this donation app. Default USDT BEP20 (usdtbsc).
+ * Env override supported; aliases like usdtbep20 map to usdtbsc.
  */
-export async function resolvePayCurrency(apiKey: string): Promise<string> {
-  const forced = configuredPayCurrency();
-  if (forced) return forced;
-
-  try {
-    const response = await fetch(`${apiBase()}/v1/merchant/coins`, {
-      method: "GET",
-      headers: { "x-api-key": apiKey },
-      cache: "no-store",
-    });
-    if (!response.ok) return DEFAULT_PAY_CURRENCY;
-
-    const raw = (await response.json().catch(() => ({}))) as {
-      selectedCoins?: unknown;
-      selectedCurrencies?: unknown;
-    };
-    const list = (raw.selectedCoins || raw.selectedCurrencies || []) as unknown;
-    const coins = Array.isArray(list)
-      ? list.map((c) => String(c).trim().toLowerCase()).filter(Boolean)
-      : [];
-
-    if (coins.length === 0) return DEFAULT_PAY_CURRENCY;
-
-    for (const preferred of USDT_PAY_PREFERENCE) {
-      if (coins.includes(preferred)) return preferred;
-    }
-
-    const anyUsdt = coins.find((c) => c.startsWith("usdt"));
-    if (anyUsdt) return anyUsdt;
-  } catch {
-    // Fall through to default.
-  }
-
-  return DEFAULT_PAY_CURRENCY;
+export function resolvePayCurrency(): string {
+  return configuredPayCurrency() || DEFAULT_PAY_CURRENCY;
 }
 
 export async function createNowPaymentsInvoice(
@@ -152,6 +113,9 @@ export async function createNowPaymentsInvoice(
     return {
       checkoutUrl: `/demo-pay?token=${token}`,
       providerPaymentId: `demo_${input.orderId}`,
+      payAddress: "demo-address",
+      payAmount: input.amount,
+      payCurrency: DEFAULT_PAY_CURRENCY,
     };
   }
 
@@ -160,13 +124,11 @@ export async function createNowPaymentsInvoice(
     throw new Error("NOWPAYMENTS_API_KEY is missing");
   }
 
-  // Price the Hosted Invoice in USDT so the selected donation amount is the
-  // invoice amount — not a USD fiat approximation. Lock pay_currency to a USDT
-  // network so checkout does not default to BTC.
+  // Direct payment (not hosted invoice choose-asset). Locks USDT BEP20 address.
   const description = input.donorName
     ? `Donation from ${input.donorName}`
     : `Donation ${input.orderId}`;
-  const payCurrency = await resolvePayCurrency(apiKey);
+  const payCurrency = resolvePayCurrency();
 
   const payload = {
     price_amount: Number(input.amount.toFixed(8)),
@@ -177,9 +139,10 @@ export async function createNowPaymentsInvoice(
     ipn_callback_url: input.ipnCallbackUrl,
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
+    is_fixed_rate: true,
   };
 
-  const response = await fetch(`${apiBase()}/v1/invoice`, {
+  const response = await fetch(`${apiBase()}/v1/payment`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -201,17 +164,27 @@ export async function createNowPaymentsInvoice(
   }
 
   const data = raw as Record<string, unknown>;
-  const checkoutUrl = String(data.invoice_url || "");
-  if (!checkoutUrl) {
-    throw new Error("NOWPayments response missing invoice_url");
+  const paymentId =
+    data.payment_id != null && String(data.payment_id) !== ""
+      ? String(data.payment_id)
+      : "";
+  const payAddress = String(data.pay_address || "").trim();
+  const payAmount = Number(data.pay_amount ?? input.amount);
+  const returnedPayCurrency = String(data.pay_currency || payCurrency)
+    .trim()
+    .toLowerCase();
+
+  if (!paymentId || !payAddress) {
+    throw new Error("NOWPayments response missing payment address");
   }
 
-  // Store invoice id; IPNs later include invoice_id and/or payment_id.
-  const invoiceId = data.id != null ? String(data.id) : "";
-
+  // Our own pay page — avoids hosted "choose asset" BTC screen.
   return {
-    checkoutUrl,
-    providerPaymentId: invoiceId || undefined,
+    checkoutUrl: `/pay?order=${encodeURIComponent(input.orderId)}`,
+    providerPaymentId: paymentId,
+    payAddress,
+    payAmount: Number.isFinite(payAmount) ? payAmount : input.amount,
+    payCurrency: returnedPayCurrency || payCurrency,
     raw,
   };
 }
