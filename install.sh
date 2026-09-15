@@ -35,6 +35,11 @@ ok()   { echo "${C_GREEN}✓${C_RESET} $*"; }
 warn() { echo "${C_YELLOW}!${C_RESET} $*"; }
 err()  { echo "${C_RED}✗${C_RESET} $*" >&2; }
 info() { echo "${C_CYAN}›${C_RESET} $*"; }
+section() {
+  echo
+  echo "  ${C_BOLD}${C_ORANGE}$1${C_RESET}"
+  echo "  ${C_DIM}$(printf '─%.0s' {1..36})${C_RESET}"
+}
 
 env_escape() {
   local value="${1-}"
@@ -153,7 +158,7 @@ ensure_caddy_local() {
     d="${d#http://}"
     d="${d%%/*}"
     if [[ -n "${d}" ]]; then
-      write_caddy_local "${d}" ""
+      write_caddy_local "${d}" "${ACME_EMAIL-}"
       ok "Rebuilt Caddyfile.local from APP_URL"
       return 0
     fi
@@ -176,12 +181,116 @@ wait_for_app() {
   return 1
 }
 
+# Caddy auto-issues Let's Encrypt once DNS + ports 80/443 are correct.
+wait_for_https() {
+  local domain="$1"
+  info "Waiting for HTTPS certificate (Let's Encrypt via Caddy)..."
+  local i
+  for i in $(seq 1 40); do
+    if curl -fsS --max-time 8 "https://${domain}/api/health" >/dev/null 2>&1; then
+      ok "HTTPS ready — certificate issued for ${domain}"
+      return 0
+    fi
+    sleep 3
+  done
+  warn "HTTPS not ready yet."
+  echo "    Check: DNS A record → this server, ports 80+443 open, then:"
+  echo "    docker compose logs caddy"
+  compose logs --tail=50 caddy || true
+  return 1
+}
+
 read_secret() {
   local prompt="$1"
   local value=""
   read -r -s -p "${prompt}" value
   echo >&2
   printf '%s' "${value}"
+}
+
+normalize_domain() {
+  local d="${1-}"
+  d="${d// /}"
+  d="${d#https://}"
+  d="${d#http://}"
+  d="${d%%/*}"
+  d="${d%%:*}"
+  printf '%s' "${d,,}"
+}
+
+valid_domain() {
+  local d="$1"
+  [[ "${d}" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] || return 1
+  [[ "${d}" == *.* ]] || return 1
+  [[ "${d}" != *".."* ]] || return 1
+  return 0
+}
+
+valid_email() {
+  local e="$1"
+  [[ "${e}" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]
+}
+
+public_ipv4() {
+  curl -4 -fsS --max-time 6 https://ifconfig.me/ip 2>/dev/null \
+    || curl -4 -fsS --max-time 6 https://api.ipify.org 2>/dev/null \
+    || curl -4 -fsS --max-time 6 https://icanhazip.com 2>/dev/null \
+    || true
+}
+
+resolve_domain_ips() {
+  local host="$1"
+  local out=""
+  if command -v dig >/dev/null 2>&1; then
+    out="$(dig +short A "${host}" 2>/dev/null | grep -E '^[0-9.]+$' || true)"
+  fi
+  if [[ -z "${out}" ]] && command -v getent >/dev/null 2>&1; then
+    out="$(getent ahostsv4 "${host}" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+  fi
+  if [[ -z "${out}" ]] && command -v python3 >/dev/null 2>&1; then
+    out="$(python3 -c "import socket; print(socket.gethostbyname('${host}'))" 2>/dev/null || true)"
+  fi
+  printf '%s' "${out}"
+}
+
+check_dns_points_here() {
+  local domain="$1"
+  local server_ip resolved
+  server_ip="$(public_ipv4 | tr -d '[:space:]')"
+  if [[ -z "${server_ip}" ]]; then
+    warn "Could not detect this server's public IP — skipping DNS check."
+    return 0
+  fi
+
+  resolved="$(resolve_domain_ips "${domain}")"
+  if [[ -z "${resolved}" ]]; then
+    err "Domain ${domain} does not resolve yet."
+    echo "    Point an A record to ${server_ip}, wait for DNS, then retry."
+    return 1
+  fi
+
+  if printf '%s\n' "${resolved}" | grep -qx "${server_ip}"; then
+    ok "DNS OK — ${domain} → ${server_ip}"
+    return 0
+  fi
+
+  err "DNS mismatch."
+  echo "    Domain resolves to:"
+  printf '%s\n' "${resolved}" | sed 's/^/      /'
+  echo "    This server public IP: ${server_ip}"
+  echo "    Update the A record, wait a minute, then retry Install."
+  return 1
+}
+
+ensure_ports_free_hint() {
+  local busy=""
+  if command -v ss >/dev/null 2>&1; then
+    if ss -ltn "( sport = :80 or sport = :443 )" 2>/dev/null | grep -qE ':80|:443'; then
+      # Docker/Caddy already bound is fine; warn only if something else owns them later via compose fail.
+      busy="maybe"
+    fi
+  fi
+  [[ -n "${busy}" ]] || true
 }
 
 write_caddy_local() {
@@ -233,12 +342,14 @@ write_env_file() {
   local tg_token="$8"
   local tg_chat="$9"
   local admin_path="${10:-admin}"
+  local acme_email="${11-}"
 
   admin_path="$(printf '%s' "${admin_path}" | tr -cd 'A-Za-z0-9-_')"
   [[ -n "${admin_path}" ]] || admin_path="admin"
 
   cat > .env <<EOF
 APP_URL=$(env_escape "https://${domain}")
+ACME_EMAIL=$(env_escape "${acme_email}")
 SESSION_SECRET=$(env_escape "${session_secret}")
 ADMIN_PASSWORD=$(env_escape "${admin_password}")
 ADMIN_PATH=$(env_escape "${admin_path}")
@@ -274,19 +385,51 @@ current_domain() {
   printf '%s' "$d"
 }
 
-open_firewall_hint() {
+open_firewall() {
   echo
-  info "Firewall needs ports 80 and 443 open."
+  info "Opening ports 80 and 443 (required for HTTPS / Let's Encrypt)..."
   if command -v ufw >/dev/null 2>&1; then
-    read -r -p "  Configure UFW now? [y/N]: " ufw_ans
+    read -r -p "  Configure UFW now? [Y/n]: " ufw_ans
+    ufw_ans="${ufw_ans:-Y}"
     if [[ "${ufw_ans,,}" == "y" || "${ufw_ans,,}" == "yes" ]]; then
       need_root ufw allow 80/tcp || true
       need_root ufw allow 443/tcp || true
       need_root ufw allow 443/udp || true
       need_root ufw allow OpenSSH || true
-      ok "UFW rules added (enable with: sudo ufw enable)"
+      if need_root ufw status 2>/dev/null | grep -qi inactive; then
+        read -r -p "  UFW is inactive. Enable it now? [Y/n]: " en_ans
+        en_ans="${en_ans:-Y}"
+        if [[ "${en_ans,,}" == "y" || "${en_ans,,}" == "yes" ]]; then
+          need_root ufw --force enable || true
+        fi
+      fi
+      ok "UFW rules for 80/443 applied"
+    else
+      warn "Skipped UFW — make sure 80/443 are open on your cloud firewall too."
     fi
+  else
+    warn "ufw not installed — open TCP 80 + 443 on your cloud provider firewall."
   fi
+}
+
+print_post_install() {
+  local domain="$1"
+  local admin_path="$2"
+  echo
+  ok "Install complete"
+  echo
+  echo "  ${C_BOLD}Your site${C_RESET}"
+  echo "    https://${domain}"
+  echo "    https://${domain}/${admin_path}/login"
+  echo
+  echo "  ${C_BOLD}Paste this IPN URL in NOWPayments${C_RESET}"
+  echo "    https://${domain}/api/webhook/nowpayments"
+  echo
+  echo "  ${C_BOLD}Next step${C_RESET}"
+  echo "    1. Open admin → set donation targets"
+  echo "    2. In NOWPayments dashboard → set IPN callback to the URL above"
+  echo "    3. Make a small live test donation"
+  echo
 }
 
 # ── actions ─────────────────────────────────────────────
@@ -297,67 +440,125 @@ do_install() {
   echo "  ${C_BOLD}${C_ORANGE}Install / Reinstall${C_RESET}"
   echo "  ${C_DIM}────────────────────${C_RESET}"
   echo
+  echo "  Enter the values below. Caddy will obtain a free"
+  echo "  Let's Encrypt certificate automatically."
+  echo "  After install you only set targets in admin."
+  echo
 
   install_docker
 
   local domain acme_email admin_password api_key ipn_secret tg_token tg_chat
   local mode allow_demo session_secret admin_path
 
-  read -r -p "  Domain (donate.example.com): " domain
-  domain="${domain// /}"
-  [[ -n "${domain}" ]] || { err "Domain required."; pause; return 1; }
+  # ── Domain & SSL ──────────────────────────────────────
+  section "1 · Domain & SSL"
+  echo "  ${C_DIM}DNS A record must already point to this server.${C_RESET}"
+  read -r -p "  Domain (e.g. donate.example.com): " domain
+  domain="$(normalize_domain "${domain}")"
+  if ! valid_domain "${domain}"; then
+    err "Invalid domain."
+    pause
+    return 1
+  fi
 
-  read -r -p "  Let's Encrypt email (optional): " acme_email
-  admin_password="$(read_secret "  Admin password (min 8): ")"
+  read -r -p "  Let's Encrypt email (required for SSL notices): " acme_email
+  acme_email="${acme_email// /}"
+  if ! valid_email "${acme_email}"; then
+    err "Valid email required for automatic certificate."
+    pause
+    return 1
+  fi
+
+  if ! check_dns_points_here "${domain}"; then
+    read -r -p "  Continue anyway? [y/N]: " force_dns
+    if [[ "${force_dns,,}" != "y" && "${force_dns,,}" != "yes" ]]; then
+      pause
+      return 1
+    fi
+    warn "Continuing without matching DNS — certificate may fail."
+  fi
+
+  open_firewall
+  ensure_ports_free_hint
+
+  # ── Admin ─────────────────────────────────────────────
+  section "2 · Admin"
+  admin_password="$(read_secret "  Admin password (min 8 chars): ")"
   [[ ${#admin_password} -ge 8 ]] || { err "Password too short."; pause; return 1; }
 
-  read -r -p "  Admin path [admin]: " admin_path
+  read -r -p "  Admin URL path [admin]: " admin_path
   admin_path="${admin_path:-admin}"
+  admin_path="$(printf '%s' "${admin_path}" | tr -cd 'A-Za-z0-9-_')"
+  [[ -n "${admin_path}" ]] || admin_path="admin"
 
-  api_key="$(read_secret "  NOWPayments API Key (empty = demo): ")"
-  ipn_secret="$(read_secret "  NOWPayments IPN Secret: ")"
-  tg_token="$(read_secret "  Telegram Bot Token (optional): ")"
-  read -r -p "  Telegram Chat ID (optional): " tg_chat
+  # ── NOWPayments ───────────────────────────────────────
+  section "3 · NOWPayments (live)"
+  echo "  ${C_DIM}From nowpayments.io → API keys / IPN secret${C_RESET}"
+  echo "  ${C_DIM}IPN URL after install:${C_RESET}"
+  echo "  ${C_DIM}https://${domain}/api/webhook/nowpayments${C_RESET}"
+  api_key="$(read_secret "  API Key: ")"
+  ipn_secret="$(read_secret "  IPN Secret: ")"
 
   allow_demo="false"
-  if [[ -z "${api_key}" ]]; then
-    read -r -p "  Enable DEMO on public server? [y/N]: " allow
-    if [[ "${allow,,}" == "y" || "${allow,,}" == "yes" ]]; then
+  if [[ -z "${api_key}" || -z "${ipn_secret}" ]]; then
+    echo
+    warn "Live keys missing."
+    read -r -p "  Type DEMO to enable demo checkout (not for production): " demo_confirm
+    if [[ "${demo_confirm}" == "DEMO" ]]; then
       mode="demo"
       allow_demo="true"
-      warn "Demo mode enabled"
+      api_key=""
+      ipn_secret=""
+      warn "Demo mode — payments are simulated locally."
     else
-      err "API key required for live install."
+      err "API Key and IPN Secret are required for live install."
       pause
       return 1
     fi
   else
     mode="live"
-    [[ -n "${ipn_secret}" ]] || { err "IPN secret required."; pause; return 1; }
+  fi
+
+  # ── Telegram (optional) ───────────────────────────────
+  section "4 · Telegram (optional)"
+  echo "  ${C_DIM}Leave empty to skip — can set later in admin.${C_RESET}"
+  tg_token="$(read_secret "  Bot Token: ")"
+  read -r -p "  Chat ID: " tg_chat
+
+  # ── Confirm ───────────────────────────────────────────
+  section "Confirm"
+  echo "  Domain:     ${domain}"
+  echo "  SSL email:  ${acme_email}"
+  echo "  Admin:      https://${domain}/${admin_path}/login"
+  echo "  Payments:   ${mode}"
+  echo "  Telegram:   $([[ -n "${tg_token}" ]] && echo set || echo skip)"
+  echo
+  read -r -p "  Proceed with install? [Y/n]: " go
+  go="${go:-Y}"
+  if [[ "${go,,}" != "y" && "${go,,}" != "yes" ]]; then
+    warn "Cancelled."
+    pause
+    return 0
   fi
 
   session_secret="$(openssl rand -hex 32)"
   prepare_data_dir
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
+    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}" "${acme_email}"
   write_caddy_local "${domain}" "${acme_email}"
 
-  open_firewall_hint
   echo
   info "Building (first time can take a few minutes)..."
   compose up -d --build --remove-orphans
 
-  if wait_for_app; then
-    echo
-    ok "Install complete"
-    echo "    Site:    https://${domain}"
-    echo "    Admin:   https://${domain}/${admin_path}/login"
-    echo "    IPN:     https://${domain}/api/webhook/nowpayments"
-  else
+  if ! wait_for_app; then
     err "Install finished but app is unhealthy."
     pause
     return 1
   fi
+
+  wait_for_https "${domain}" || true
+  print_post_install "${domain}" "${admin_path}"
   pause
 }
 
@@ -446,11 +647,35 @@ do_settings() {
   local cur
   cur="$(current_domain)"
 
+  section "1 · Domain & SSL"
   read -r -p "  Domain [${cur}]: " domain
-  domain="${domain:-$cur}"
+  domain="$(normalize_domain "${domain:-$cur}")"
+  if ! valid_domain "${domain}"; then
+    err "Invalid domain."
+    pause
+    return 1
+  fi
 
-  read -r -p "  Let's Encrypt email (optional): " acme_email
+  read -r -p "  Let's Encrypt email [${ACME_EMAIL-}]: " acme_email
+  acme_email="${acme_email:-${ACME_EMAIL-}}"
+  acme_email="${acme_email// /}"
+  if ! valid_email "${acme_email}"; then
+    err "Valid Let's Encrypt email required."
+    pause
+    return 1
+  fi
 
+  if [[ "${domain}" != "${cur}" ]]; then
+    if ! check_dns_points_here "${domain}"; then
+      read -r -p "  Continue anyway? [y/N]: " force_dns
+      if [[ "${force_dns,,}" != "y" && "${force_dns,,}" != "yes" ]]; then
+        pause
+        return 1
+      fi
+    fi
+  fi
+
+  section "2 · Admin"
   local new_admin
   new_admin="$(read_secret "  New admin password (Enter = keep): ")"
   admin_password="${new_admin:-${ADMIN_PASSWORD}}"
@@ -458,45 +683,50 @@ do_settings() {
   read -r -p "  Admin path [${ADMIN_PATH:-admin}]: " admin_path
   admin_path="${admin_path:-${ADMIN_PATH:-admin}}"
 
-  api_key="$(read_secret "  NOWPayments API Key (Enter = keep): ")"
+  section "3 · NOWPayments"
+  api_key="$(read_secret "  API Key (Enter = keep): ")"
   api_key="${api_key:-${NOWPAYMENTS_API_KEY-}}"
-  ipn_secret="$(read_secret "  NOWPayments IPN Secret (Enter = keep): ")"
+  ipn_secret="$(read_secret "  IPN Secret (Enter = keep): ")"
   ipn_secret="${ipn_secret:-${NOWPAYMENTS_IPN_SECRET-}}"
-  tg_token="$(read_secret "  Telegram Bot Token (Enter = keep): ")"
-  tg_token="${tg_token:-${TELEGRAM_BOT_TOKEN-}}"
-  read -r -p "  Telegram Chat ID [${TELEGRAM_CHAT_ID-}]: " tg_chat
-  tg_chat="${tg_chat:-${TELEGRAM_CHAT_ID-}}"
 
-  # Never silently enable production demo — that would allow free mark-paid via /api/demo-pay.
   allow_demo="false"
-  if [[ -z "${api_key}" ]]; then
-    read -r -p "  Enable DEMO on public server? [y/N]: " allow
-    if [[ "${allow,,}" == "y" || "${allow,,}" == "yes" ]]; then
+  if [[ -z "${api_key}" || -z "${ipn_secret}" ]]; then
+    read -r -p "  Type DEMO to enable demo mode: " demo_confirm
+    if [[ "${demo_confirm}" == "DEMO" ]]; then
       mode="demo"
       allow_demo="true"
+      api_key=""
+      ipn_secret=""
       warn "Demo mode enabled"
     else
-      err "API key required for live settings."
+      err "API key + IPN secret required for live settings."
       pause
       return 1
     fi
   else
     mode="live"
-    [[ -n "${ipn_secret}" ]] || { err "IPN secret required for live mode."; pause; return 1; }
   fi
+
+  section "4 · Telegram (optional)"
+  tg_token="$(read_secret "  Bot Token (Enter = keep): ")"
+  tg_token="${tg_token:-${TELEGRAM_BOT_TOKEN-}}"
+  read -r -p "  Chat ID [${TELEGRAM_CHAT_ID-}]: " tg_chat
+  tg_chat="${tg_chat:-${TELEGRAM_CHAT_ID-}}"
 
   session_secret="${SESSION_SECRET:-$(openssl rand -hex 32)}"
   write_env_file "${domain}" "${admin_password}" "${session_secret}" "${mode}" "${allow_demo}" \
-    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}"
+    "${api_key}" "${ipn_secret}" "${tg_token}" "${tg_chat}" "${admin_path}" "${acme_email}"
   write_caddy_local "${domain}" "${acme_email}"
 
   info "Applying settings (no image rebuild)..."
   prepare_data_dir
   compose up -d --force-recreate --no-build --remove-orphans
   wait_for_app || true
+  if [[ "${domain}" != "${cur}" ]]; then
+    wait_for_https "${domain}" || true
+  fi
   ok "Settings saved"
-  echo "    Site:  https://${domain}"
-  echo "    Admin: https://${domain}/${admin_path}/login"
+  print_post_install "${domain}" "${admin_path}"
   pause
 }
 
@@ -510,15 +740,25 @@ do_status() {
   echo
   if load_env 2>/dev/null; then
     echo "  APP_URL=${APP_URL-}"
+    echo "  ACME_EMAIL=${ACME_EMAIL-}"
     echo "  ADMIN_PATH=${ADMIN_PATH-admin}"
     echo "  MODE=${NOWPAYMENTS_MODE-}"
   fi
   if curl -fsS "http://127.0.0.1:3000/api/health" >/dev/null 2>&1; then
     echo
-    ok "Health OK"
+    ok "Local health OK (:3000)"
   else
     echo
     warn "Health check failed on :3000"
+  fi
+  if load_env 2>/dev/null; then
+    local d
+    d="$(current_domain)"
+    if [[ -n "${d}" ]] && curl -fsS --max-time 5 "https://${d}/api/health" >/dev/null 2>&1; then
+      ok "HTTPS OK (https://${d})"
+    elif [[ -n "${d}" ]]; then
+      warn "HTTPS not responding yet for ${d}"
+    fi
   fi
   pause
 }
@@ -629,7 +869,7 @@ do_uninstall() {
 
 # ── menu ────────────────────────────────────────────────
 
-INSTALLER_VERSION="2026.09.09"
+INSTALLER_VERSION="2026.09.15"
 
 print_menu() {
   clear_screen
@@ -648,9 +888,9 @@ ${C_ORANGE}${C_BOLD}
 ${C_DIM}  script ${INSTALLER_VERSION}${ver:+ · git ${ver}}${C_RESET}
 
   ${C_GREEN}●${C_RESET}  Main
-     ${C_CYAN}1${C_RESET}   Install / reinstall
-     ${C_CYAN}2${C_RESET}   Update              ${C_DIM}app only · SSL stays up${C_RESET}
-     ${C_CYAN}3${C_RESET}   Settings            ${C_DIM}no rebuild${C_RESET}
+     ${C_CYAN}1${C_RESET}   Install / reinstall   ${C_DIM}domain · SSL · payments${C_RESET}
+     ${C_CYAN}2${C_RESET}   Update                ${C_DIM}app only · SSL stays up${C_RESET}
+     ${C_CYAN}3${C_RESET}   Settings              ${C_DIM}no rebuild${C_RESET}
 
   ${C_GREEN}●${C_RESET}  Monitor
      ${C_CYAN}4${C_RESET}   Status
