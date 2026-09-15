@@ -1,5 +1,4 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { USDTBSC_SOFT_PREFER_MIN_USDT } from "@/lib/donation-limits";
 
 /** Invoice price denomination — fiat usd (merchant often rejects usdt as price). */
 export const PRICE_CURRENCY = "usd" as const;
@@ -152,8 +151,9 @@ async function fetchMinAmountUsd(
 }
 
 /**
- * Soft-prefer a pay coin only when the donation clears that coin's network min.
- * Below the floor, omit pay_currency so Confirm works with other networks.
+ * Soft-prefer pay coin. If NOWPayments reports a live min for that coin and
+ * the donation is below it, omit pay_currency so Confirm is not forced onto
+ * an under-min pair. Never invent a hardcoded USD floor — mins are dynamic.
  */
 export async function resolvePreferredPayCurrencyForAmount(
   apiKey: string,
@@ -162,11 +162,11 @@ export async function resolvePreferredPayCurrencyForAmount(
   const preferred = resolvePayCurrency();
   if (!preferred) return undefined;
 
-  // For USDT BEP20, skip soft-prefer on small amounts (Confirm would 400).
-  if (preferred === "usdtbsc" || preferred === "usdtbep20") {
-    const liveMin = await fetchMinAmountUsd(apiKey, "usdtbsc");
-    const floor = liveMin ?? USDTBSC_SOFT_PREFER_MIN_USDT;
-    if (amount + 1e-9 < floor) return undefined;
+  const payTicker =
+    preferred === "usdtbep20" || preferred === "bep20" ? "usdtbsc" : preferred;
+  const liveMin = await fetchMinAmountUsd(apiKey, payTicker);
+  if (liveMin != null && amount + 1e-9 < liveMin) {
+    return undefined;
   }
 
   return preferred;
