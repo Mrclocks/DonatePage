@@ -1,9 +1,16 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-/** NOWPayments invoice price denomination for this app (USDT, not fiat USD). */
-export const PRICE_CURRENCY = "usdt" as const;
+/**
+ * Invoice price denomination sent to NOWPayments.
+ * Must be an allowed *price* currency on the merchant account.
+ * Many accounts (including typical USDT-payout setups) reject `usdt` as
+ * price_currency — hosted Confirm then fails with:
+ * "Price currency USDT is not allowed." Use fiat `usd` like PasarGuard.
+ * Donors still pay in crypto (prefer USDT BEP20); ~1 USDT ≈ 1 USD.
+ */
+export const PRICE_CURRENCY = "usd" as const;
 
-/** Default network for paying the USDT invoice (BEP20 / BSC). */
+/** Soft-preferred pay coin on hosted checkout (BEP20 / BSC). */
 export const DEFAULT_PAY_CURRENCY = "usdtbsc" as const;
 
 export type CreateInvoiceInput = {
@@ -127,9 +134,9 @@ async function postNowPayments(
 }
 
 /**
- * Hosted NOWPayments checkout (like typical donation pages):
- * create invoice and redirect to invoice_url. Donor can pay with any
- * enabled crypto on the gateway — no forced USDTBSC lock.
+ * Hosted NOWPayments checkout (like PasarGuard donate):
+ * create invoice priced in USD and redirect to invoice_url.
+ * Soft-prefer pay_currency (default usdtbsc); donor can change coin.
  */
 export async function createNowPaymentsInvoice(
   input: CreateInvoiceInput,
@@ -163,37 +170,22 @@ export async function createNowPaymentsInvoice(
   // donors don't land on temporarily-unavailable coins like BTC.
   const preferredPay = resolvePayCurrency();
 
+  const baseInvoice = {
+    price_amount: amount,
+    // Do NOT use price_currency=usdt — invoice create may succeed, but hosted
+    // /invoice-payment Confirm fails with "Price currency USDT is not allowed".
+    price_currency: PRICE_CURRENCY,
+    order_id: input.orderId,
+    order_description: description,
+    ipn_callback_url: input.ipnCallbackUrl,
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+  };
+
   const attempts: Array<Record<string, unknown>> = [
-    {
-      price_amount: amount,
-      price_currency: PRICE_CURRENCY,
-      pay_currency: preferredPay,
-      order_id: input.orderId,
-      order_description: description,
-      ipn_callback_url: input.ipnCallbackUrl,
-      success_url: input.successUrl,
-      cancel_url: input.cancelUrl,
-    },
-    {
-      price_amount: amount,
-      price_currency: "usd",
-      pay_currency: preferredPay,
-      order_id: input.orderId,
-      order_description: description,
-      ipn_callback_url: input.ipnCallbackUrl,
-      success_url: input.successUrl,
-      cancel_url: input.cancelUrl,
-    },
-    // Last resort: no preferred coin (donor chooses freely).
-    {
-      price_amount: amount,
-      price_currency: PRICE_CURRENCY,
-      order_id: input.orderId,
-      order_description: description,
-      ipn_callback_url: input.ipnCallbackUrl,
-      success_url: input.successUrl,
-      cancel_url: input.cancelUrl,
-    },
+    { ...baseInvoice, pay_currency: preferredPay },
+    // Fallback: open gateway without preferred coin if usdtbsc is disabled.
+    { ...baseInvoice },
   ];
 
   const errors: string[] = [];
@@ -350,6 +342,6 @@ export function amountsMatch(expected: number, received: number) {
 
 export function priceCurrencyIsUsdt(currency: string) {
   const c = currency.trim().toLowerCase();
-  // Accept usdt* networks and usd when invoice was priced in fiat fallback.
-  return c === PRICE_CURRENCY || c.startsWith("usdt") || c === "usd";
+  // Invoices are priced in usd; also accept legacy usdt* IPNs if any remain.
+  return c === "usd" || c === "usdt" || c.startsWith("usdt");
 }
