@@ -102,16 +102,12 @@ export async function POST(request: Request) {
 
     const lower = message.toLowerCase();
     let userError = "ساخت پرداخت ناموفق بود";
-    if (lower.includes("usdtbsc") || lower.includes("currency")) {
-      userError =
-        "ارز USDTBSC در NOWPayments فعال نیست یا ولت BEP20 ست نشده";
-    } else if (lower.includes("api key") || lower.includes("unauthorized") || lower.includes("(401)")) {
+    if (lower.includes("api key") || lower.includes("unauthorized") || lower.includes("(401)")) {
       userError = "API Key مربوط به NOWPayments نامعتبر است";
     } else if (lower.includes("ipn") || lower.includes("secret")) {
       userError = "تنظیمات IPN / کلیدها ناقص است";
-    } else if (message.startsWith("NOWPayments")) {
-      // Keep a short provider hint for debugging without dumping secrets.
-      userError = `ساخت پرداخت ناموفق بود — ${message.slice(0, 160)}`;
+    } else if (message.includes("NOWPayments")) {
+      userError = `ساخت پرداخت ناموفق بود — ${message.slice(0, 180)}`;
     }
 
     return NextResponse.json({ error: userError }, { status: 502 });

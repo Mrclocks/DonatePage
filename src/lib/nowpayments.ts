@@ -127,9 +127,9 @@ async function postNowPayments(
 }
 
 /**
- * Hosted NOWPayments checkout locked to USDT BEP20 (usdtbsc).
- * Creates an invoice, locks pay currency via invoice-payment, then returns
- * the NOWPayments invoice_url so the donor stays on their gateway UI.
+ * Hosted NOWPayments checkout (like typical donation pages):
+ * create invoice and redirect to invoice_url. Donor can pay with any
+ * enabled crypto on the gateway — no forced USDTBSC lock.
  */
 export async function createNowPaymentsInvoice(
   input: CreateInvoiceInput,
@@ -145,7 +145,6 @@ export async function createNowPaymentsInvoice(
     return {
       checkoutUrl: `/demo-pay?token=${token}`,
       providerPaymentId: `demo_${input.orderId}`,
-      payAddress: "demo-address",
       payAmount: input.amount,
       payCurrency: DEFAULT_PAY_CURRENCY,
     };
@@ -159,15 +158,14 @@ export async function createNowPaymentsInvoice(
   const description = input.donorName
     ? `Donation from ${input.donorName}`
     : `Donation ${input.orderId}`;
-  const payCurrency = resolvePayCurrency();
   const amount = Number(input.amount.toFixed(8));
 
-  const invoiceAttempts: Array<Record<string, unknown>> = [
-    // Fiat price_currency is most reliable on hosted checkout amount display.
+  // No pay_currency: donor picks any enabled coin on NOWPayments hosted UI
+  // (same pattern as typical donation pages).
+  const attempts: Array<Record<string, unknown>> = [
     {
       price_amount: amount,
-      price_currency: "usd",
-      pay_currency: payCurrency,
+      price_currency: PRICE_CURRENCY,
       order_id: input.orderId,
       order_description: description,
       ipn_callback_url: input.ipnCallbackUrl,
@@ -176,8 +174,7 @@ export async function createNowPaymentsInvoice(
     },
     {
       price_amount: amount,
-      price_currency: PRICE_CURRENCY,
-      pay_currency: payCurrency,
+      price_currency: "usd",
       order_id: input.orderId,
       order_description: description,
       ipn_callback_url: input.ipnCallbackUrl,
@@ -187,77 +184,30 @@ export async function createNowPaymentsInvoice(
   ];
 
   const errors: string[] = [];
-  let invoiceRaw: Record<string, unknown> | null = null;
-
-  for (const payload of invoiceAttempts) {
+  for (const payload of attempts) {
     const { response, raw } = await postNowPayments(apiKey, "/v1/invoice", payload);
-    if (response.ok) {
-      invoiceRaw = raw as Record<string, unknown>;
-      break;
+    if (!response.ok) {
+      errors.push(extractNowPaymentsError(raw, response.status));
+      continue;
     }
-    errors.push(extractNowPaymentsError(raw, response.status));
+
+    const data = raw as Record<string, unknown>;
+    const invoiceId =
+      data.id != null && String(data.id) !== "" ? String(data.id) : "";
+    const invoiceUrl = String(data.invoice_url || "").trim();
+    if (!invoiceId || !invoiceUrl) {
+      throw new Error("NOWPayments response missing invoice_url");
+    }
+
+    return {
+      checkoutUrl: invoiceUrl,
+      providerPaymentId: invoiceId,
+      payAmount: amount,
+      raw,
+    };
   }
 
-  if (!invoiceRaw) {
-    throw new Error(errors.filter(Boolean).join(" | ") || "NOWPayments invoice failed");
-  }
-
-  const invoiceId =
-    invoiceRaw.id != null && String(invoiceRaw.id) !== ""
-      ? String(invoiceRaw.id)
-      : "";
-  const invoiceUrl = String(invoiceRaw.invoice_url || "").trim();
-  if (!invoiceId || !invoiceUrl) {
-    throw new Error("NOWPayments response missing invoice_url");
-  }
-
-  // Lock hosted checkout onto USDTBSC so amount/address appear (no BTC choose step).
-  const lockRes = await postNowPayments(apiKey, "/v1/invoice-payment", {
-    iid: Number(invoiceId) || invoiceId,
-    pay_currency: payCurrency,
-    order_description: description,
-  });
-
-  if (!lockRes.response.ok) {
-    throw new Error(
-      extractNowPaymentsError(lockRes.raw, lockRes.response.status) +
-        " — Enable USDTBSC + BEP20 payout wallet in NOWPayments, then retry.",
-    );
-  }
-
-  const locked = lockRes.raw as Record<string, unknown>;
-  const paymentId =
-    locked.payment_id != null && String(locked.payment_id) !== ""
-      ? String(locked.payment_id)
-      : "";
-  const payAddress = String(locked.pay_address || "").trim() || undefined;
-  const amountLocked = Number(locked.pay_amount);
-  const payAmount =
-    Number.isFinite(amountLocked) && amountLocked > 0 ? amountLocked : undefined;
-  const lockedPayCurrency = String(locked.pay_currency || payCurrency)
-    .trim()
-    .toLowerCase();
-
-  if (!payAddress || !payAmount) {
-    throw new Error(
-      "NOWPayments locked payment but did not return amount/address. Check USDTBSC availability in your account.",
-    );
-  }
-
-  // Prefer URL that deep-links into the created payment on the hosted gateway.
-  const checkoutUrl = paymentId
-    ? `https://nowpayments.io/payment/?iid=${encodeURIComponent(invoiceId)}&paymentId=${encodeURIComponent(paymentId)}`
-    : invoiceUrl;
-
-  return {
-    checkoutUrl,
-    // Keep invoice id for IPN matching (IPN includes invoice_id + payment_id).
-    providerPaymentId: invoiceId,
-    payAddress,
-    payAmount,
-    payCurrency: lockedPayCurrency,
-    raw: { invoice: invoiceRaw, payment: lockRes.raw },
-  };
+  throw new Error(errors.filter(Boolean).join(" | ") || "NOWPayments invoice failed");
 }
 
 /** Recursively sort object keys (NOWPayments IPN requirement). */
@@ -386,5 +336,6 @@ export function amountsMatch(expected: number, received: number) {
 
 export function priceCurrencyIsUsdt(currency: string) {
   const c = currency.trim().toLowerCase();
-  return c === PRICE_CURRENCY || c.startsWith("usdt");
+  // Accept usdt* networks and usd when invoice was priced in fiat fallback.
+  return c === PRICE_CURRENCY || c.startsWith("usdt") || c === "usd";
 }
