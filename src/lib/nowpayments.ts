@@ -162,9 +162,11 @@ export async function createNowPaymentsInvoice(
     throw new Error("NOWPAYMENTS_API_KEY is missing");
   }
 
-  const description = input.donorName
-    ? `Donation from ${input.donorName}`
-    : `Donation ${input.orderId}`;
+  // Always send a non-empty description — name is optional for donors.
+  const trimmedName = input.donorName?.trim();
+  const description = trimmedName
+    ? `Donation from ${trimmedName}`
+    : `Anonymous donation ${input.orderId}`;
   const amount = Number(input.amount.toFixed(8));
   // Soft preference only (not a hard lock). Opens hosted UI on USDTBSC first so
   // donors don't land on temporarily-unavailable coins like BTC.
