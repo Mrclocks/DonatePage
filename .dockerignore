@@ -10,11 +10,10 @@ backups
 *.md
 install.sh
 Caddyfile.local
-Dockerfile
-docker-compose.yml
 .eslintrc*
 eslint.config.*
 tsconfig.tsbuildinfo
 next-env.d.ts
 **/*.test.*
 **/__tests__
+.github
