@@ -80,7 +80,13 @@ export async function POST(request: Request) {
   }
 
   if (!extracted.paid) {
-    // waiting / confirming / partially_paid / etc. — acknowledge, do not mark paid
+    // waiting / confirming / partially_paid / sending / etc.
+    console.info("ipn_ignored_status", {
+      orderId: extracted.orderId,
+      status: extracted.paymentStatus,
+      paymentId: extracted.paymentId,
+      invoiceId: extracted.invoiceId,
+    });
     return NextResponse.json({
       ok: true,
       ignored: true,

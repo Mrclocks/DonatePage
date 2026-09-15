@@ -264,7 +264,8 @@ export function verifyNowPaymentsIpn(
   }
 }
 
-const PAID_STATUSES = new Set(["finished"]);
+// Credit on blockchain confirmation. `finished` means funds reached payout wallet.
+const PAID_STATUSES = new Set(["confirmed", "finished"]);
 const FAILED_STATUSES = new Set(["failed", "expired", "refunded"]);
 
 export function extractIpnPayment(payload: Record<string, unknown>): IpnExtract {
@@ -280,7 +281,9 @@ export function extractIpnPayment(payload: Record<string, unknown>): IpnExtract 
   const invoiceId =
     payload.invoice_id != null && String(payload.invoice_id) !== ""
       ? String(payload.invoice_id)
-      : "";
+      : payload.iid != null && String(payload.iid) !== ""
+        ? String(payload.iid)
+        : "";
 
   const priceAmount = Number(payload.price_amount ?? 0);
   const priceCurrency = String(payload.price_currency || "")
