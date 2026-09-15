@@ -372,8 +372,8 @@ export function getPublicPageData() {
   const general = getGeneralTarget();
   const campaigns = getActiveCampaigns();
   const destinations = [
-    ...(general ? [general] : []),
     ...campaigns,
+    ...(general ? [general] : []),
   ];
   const topDonors = getTopDonors(10);
   const recentDonations = getRecentDonations(8);
