@@ -163,9 +163,10 @@ export async function createNowPaymentsInvoice(
   const amount = Number(input.amount.toFixed(8));
 
   const invoiceAttempts: Array<Record<string, unknown>> = [
+    // Fiat price_currency is most reliable on hosted checkout amount display.
     {
       price_amount: amount,
-      price_currency: PRICE_CURRENCY,
+      price_currency: "usd",
       pay_currency: payCurrency,
       order_id: input.orderId,
       order_description: description,
@@ -173,10 +174,9 @@ export async function createNowPaymentsInvoice(
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
     },
-    // Some accounts only accept fiat denomination for invoices.
     {
       price_amount: amount,
-      price_currency: "usd",
+      price_currency: PRICE_CURRENCY,
       pay_currency: payCurrency,
       order_id: input.orderId,
       order_description: description,
@@ -211,36 +211,47 @@ export async function createNowPaymentsInvoice(
     throw new Error("NOWPayments response missing invoice_url");
   }
 
-  // Lock the hosted checkout onto USDTBSC so it skips the BTC choose-asset step.
-  let payAddress: string | undefined;
-  let payAmount: number | undefined;
-  let lockedPayCurrency = payCurrency;
+  // Lock hosted checkout onto USDTBSC so amount/address appear (no BTC choose step).
   const lockRes = await postNowPayments(apiKey, "/v1/invoice-payment", {
     iid: Number(invoiceId) || invoiceId,
     pay_currency: payCurrency,
     order_description: description,
   });
 
-  if (lockRes.response.ok) {
-    const locked = lockRes.raw as Record<string, unknown>;
-    payAddress = String(locked.pay_address || "").trim() || undefined;
-    const amountLocked = Number(locked.pay_amount);
-    if (Number.isFinite(amountLocked) && amountLocked > 0) {
-      payAmount = amountLocked;
-    }
-    lockedPayCurrency = String(locked.pay_currency || payCurrency)
-      .trim()
-      .toLowerCase();
-  } else {
-    // Still open hosted invoice with preferred pay_currency; do not hard-fail.
-    console.error("invoice_payment_lock_failed", {
-      orderId: input.orderId,
-      message: extractNowPaymentsError(lockRes.raw, lockRes.response.status),
-    });
+  if (!lockRes.response.ok) {
+    throw new Error(
+      extractNowPaymentsError(lockRes.raw, lockRes.response.status) +
+        " — Enable USDTBSC + BEP20 payout wallet in NOWPayments, then retry.",
+    );
   }
 
+  const locked = lockRes.raw as Record<string, unknown>;
+  const paymentId =
+    locked.payment_id != null && String(locked.payment_id) !== ""
+      ? String(locked.payment_id)
+      : "";
+  const payAddress = String(locked.pay_address || "").trim() || undefined;
+  const amountLocked = Number(locked.pay_amount);
+  const payAmount =
+    Number.isFinite(amountLocked) && amountLocked > 0 ? amountLocked : undefined;
+  const lockedPayCurrency = String(locked.pay_currency || payCurrency)
+    .trim()
+    .toLowerCase();
+
+  if (!payAddress || !payAmount) {
+    throw new Error(
+      "NOWPayments locked payment but did not return amount/address. Check USDTBSC availability in your account.",
+    );
+  }
+
+  // Prefer URL that deep-links into the created payment on the hosted gateway.
+  const checkoutUrl = paymentId
+    ? `https://nowpayments.io/payment/?iid=${encodeURIComponent(invoiceId)}&paymentId=${encodeURIComponent(paymentId)}`
+    : invoiceUrl;
+
   return {
-    checkoutUrl: invoiceUrl,
+    checkoutUrl,
+    // Keep invoice id for IPN matching (IPN includes invoice_id + payment_id).
     providerPaymentId: invoiceId,
     payAddress,
     payAmount,
