@@ -55,8 +55,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     const amountIssue = parsed.error.issues.find((i) => i.path[0] === "amount");
     if (amountIssue) {
-      const tooLow =
-        typeof body?.amount === "number" && body.amount < MIN_DONATION_USDT;
+      const tooLow = amountIssue.code === "too_small";
       return NextResponse.json(
         {
           error: tooLow
