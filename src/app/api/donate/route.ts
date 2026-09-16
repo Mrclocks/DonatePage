@@ -55,9 +55,12 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     const amountIssue = parsed.error.issues.find((i) => i.path[0] === "amount");
     if (amountIssue) {
+      const tooLow = amountIssue.code === "too_small";
       return NextResponse.json(
         {
-          error: `حداقل مبلغ حمایت ${MIN_DONATION_USDT} USDT است`,
+          error: tooLow
+            ? `مبلغ کمتر از ${MIN_DONATION_USDT} USDT مجاز نیست`
+            : "مبلغ نامعتبر است",
         },
         { status: 400 },
       );
