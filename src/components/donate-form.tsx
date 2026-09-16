@@ -62,7 +62,9 @@ export function DonateForm({
       return;
     }
     if (amountNumber < MIN_DONATION_USDT) {
-      setError(`حداقل مبلغ حمایت ${MIN_DONATION_USDT} USDT است`);
+      setError(
+        `مبلغ کمتر از ${MIN_DONATION_USDT} USDT مجاز نیست. حداقل ${MIN_DONATION_USDT} وارد کنید.`,
+      );
       return;
     }
 
@@ -282,7 +284,7 @@ export function DonateForm({
       <div className="flex flex-col gap-2">
         <Label>مبلغ</Label>
         <p className="text-xs leading-5 text-slate-500">
-          حداقل {MIN_DONATION_USDT} USDT (حداقل شبکه روی اکانت NOWPayments شما)
+          فعلاً حداقل {MIN_DONATION_USDT} USDT — مبلغ کمتر پذیرفته نمی‌شود
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {DONATION_AMOUNT_PRESETS.map((value) => (
@@ -292,6 +294,7 @@ export function DonateForm({
               onClick={() => {
                 setCustomMode(false);
                 setAmount(String(value));
+                setError(null);
               }}
               className={cn(
                 "inline-flex h-11 items-center justify-center rounded-full border text-sm leading-none transition",
@@ -322,11 +325,23 @@ export function DonateForm({
         <Label htmlFor="amount">مبلغ دلخواه (USDT)</Label>
         <Input
           id="amount"
+          type="number"
           inputMode="decimal"
+          min={MIN_DONATION_USDT}
+          step="any"
           value={amount}
           onChange={(e) => {
             setCustomMode(true);
             setAmount(e.target.value);
+            if (error) setError(null);
+          }}
+          onBlur={() => {
+            const n = Number(amount);
+            if (amount.trim() !== "" && Number.isFinite(n) && n < MIN_DONATION_USDT) {
+              setError(
+                `مبلغ کمتر از ${MIN_DONATION_USDT} USDT مجاز نیست. حداقل ${MIN_DONATION_USDT} وارد کنید.`,
+              );
+            }
           }}
           placeholder={`حداقل ${MIN_DONATION_USDT}`}
         />
